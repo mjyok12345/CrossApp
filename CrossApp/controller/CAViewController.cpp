@@ -8,14 +8,14 @@
 
 #include "CAViewController.h"
 #include "basics/CAApplication.h"
-#include "support/CCPointExtension.h"
+#include "support/CAPointExtension.h"
 #include "basics/CAScheduler.h"
 #include "view/CAWindow.h"
 #include "view/CAScale9ImageView.h"
 #include "dispatcher/CATouchDispatcher.h"
 #include "animation/CAViewAnimation.h"
-
-
+#include "animation/CAAnimation.h"
+#include "support/CAUIEditorParser.h"
 NS_CC_BEGIN
 
 CAViewController::CAViewController()
@@ -27,8 +27,8 @@ CAViewController::CAViewController()
 ,m_sTitle("The Title")
 ,m_bLifeLock(false)
 ,m_bKeypadEnabled(false)
+,m_pParser(NULL)
 {
-    this->setHaveNextResponder(true);
     m_pView = CAView::createWithColor(CAColor_white);
     m_pView->retain();
     m_pView->setViewDelegate(this);
@@ -36,14 +36,14 @@ CAViewController::CAViewController()
 
 CAViewController::~CAViewController()
 {
+    CC_SAFE_RELEASE_NULL(m_pParser);
     m_pView->setViewDelegate(NULL);
     CC_SAFE_RELEASE_NULL(m_pView);
     CC_SAFE_RELEASE_NULL(m_pTabBarItem);
     CC_SAFE_RELEASE_NULL(m_pNavigationBarItem);
-    CAApplication* pDirector = CAApplication::getApplication();
     if (m_bKeypadEnabled)
     {
-        pDirector->getKeypadDispatcher()->removeDelegate(this);
+        CAApplication::getApplication()->getKeypadDispatcher()->removeDelegate(this);
     }
 }
 
@@ -52,7 +52,31 @@ bool CAViewController::init()
     return true;
 }
 
-void CAViewController::getSuperViewRect(const CCRect& rect)
+CAView* CAViewController::getViewWithID(const std::string &tag)
+{
+    return m_pParser->m_mViews.getValue(tag);
+}
+
+void CAViewController::parser()
+{
+    m_pParser = new CAUIEditorParser();
+    
+    std::string name = typeid(*this).name();
+    
+#if CC_TARGET_PLATFORM == CC_PLATFORM_WIN32
+    name = name.substr(6, name.length() - 6);
+#else
+    name = name.substr(2, name.length() - 2);
+#endif
+    
+    std::string filePath = "r/" + name + ".xib";
+
+    m_pParser->initWithPath(filePath, m_pView);
+    m_pParser->parseViewControllItems(this);
+    
+}
+
+void CAViewController::getSuperViewRect(const DRect& rect)
 {
     m_pView->setFrame(rect);
     if (m_bLifeLock)
@@ -60,7 +84,6 @@ void CAViewController::getSuperViewRect(const CCRect& rect)
         this->reshapeViewRectDidFinish();
     }
 }
-
 
 void CAViewController::viewOnEnterTransitionDidFinish()
 {
@@ -70,6 +93,7 @@ void CAViewController::viewOnEnterTransitionDidFinish()
     {
         CC_BREAK_IF(m_bLifeLock);
         m_bLifeLock = true;
+        this->parser();
         this->viewDidLoad();
     }
     while (0);
@@ -127,7 +151,7 @@ bool CAViewController::isKeypadEnabled()
 /// isKeypadEnabled setter
 void CAViewController::setKeypadEnabled(bool enabled)
 {
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
     if (enabled != m_bKeypadEnabled)
     {
         m_bKeypadEnabled = enabled;
@@ -147,12 +171,12 @@ void CAViewController::setKeypadEnabled(bool enabled)
 
 void CAViewController::setNavigationBarItem(CANavigationBarItem* item)
 {
+    CC_SAFE_RETAIN(item);
+    CC_SAFE_RELEASE(m_pNavigationBarItem);
+    m_pNavigationBarItem = item;
+    
     if (item)
     {
-        CC_SAFE_RETAIN(item);
-        CC_SAFE_RELEASE(m_pNavigationBarItem);
-        m_pNavigationBarItem = item;
-        
         if (m_pNavigationController)
         {
             m_pNavigationController->updateItem(this);
@@ -162,12 +186,12 @@ void CAViewController::setNavigationBarItem(CANavigationBarItem* item)
 
 void CAViewController::setTabBarItem(CATabBarItem* item)
 {
+    CC_SAFE_RETAIN(item);
+    CC_SAFE_RELEASE(m_pTabBarItem);
+    m_pTabBarItem = item;
+    
     if (item)
     {
-        CC_SAFE_RETAIN(item);
-        CC_SAFE_RELEASE(m_pTabBarItem);
-        m_pTabBarItem = item;
-        
         if (m_pTabBarController)
         {
             m_pTabBarController->updateItem(this);
@@ -212,28 +236,24 @@ void CAViewController::dismissModalViewController(bool animated)
     CAApplication::getApplication()->getRootWindow()->dismissModalViewController(animated);
 }
 
+
 #pragma CANavigationController
 
 CANavigationController::CANavigationController()
 :m_bNavigationBarHidden(false)
 ,m_bPopViewController(false)
-,m_pNavigationBarBackGroundImage(NULL)
-,m_sNavigationBarBackGroundColor(CAColor_white)
+,m_pNavigationBarBackgroundImage(NULL)
+,m_sNavigationBarBackgroundColor(CAColor_white)
 ,m_sNavigationBarTitleColor(CAColor_white)
 ,m_sNavigationBarButtonColor(CAColor_white)
+,m_fProgress(1.0f)
 {
     m_pView->setColor(CAColor_clear);
     m_pView->setDisplayRange(false);
-    
-    this->setTouchMovedListenVertical(false);
+    this->setHaveNextResponder(false);
     this->setTouchMoved(true);
-    m_bSlidingMaxX = true;
-    m_bSlidingMinX = true;
-    
-    CCSize winSize = CAApplication::getApplication()->getWinSize();
-    m_tNavigationBarSize = CCSize(winSize.width, _px(88));
-    
-    this->setNavigationBarBackGroundImage(CAImage::create("source_material/navigation_bg.png"));
+
+    this->setNavigationBarBackgroundImage(CAImage::create("source_material/navigation_bg.png"));
 }
 
 CANavigationController::~CANavigationController()
@@ -242,65 +262,65 @@ CANavigationController::~CANavigationController()
     m_pNavigationBars.clear();
     m_pContainers.clear();
     m_pSecondContainers.clear();
-    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackGroundImage);
+    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackgroundImage);
 }
 
-void CANavigationController::setNavigationBarBackGroundImage(CrossApp::CAImage *var)
+void CANavigationController::setNavigationBarBackgroundImage(CrossApp::CAImage *var)
 {
     CC_SAFE_RETAIN(var);
-    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackGroundImage);
-    m_pNavigationBarBackGroundImage = var;
-    m_sNavigationBarBackGroundColor = CAColor_white;
+    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackgroundImage);
+    m_pNavigationBarBackgroundImage = var;
+    m_sNavigationBarBackgroundColor = CAColor_white;
     
     if (!m_pNavigationBars.empty())
     {
-        CAVector<CANavigationBar*>::iterator itr;
+        CADeque<CANavigationBar*>::iterator itr;
         for (itr=m_pNavigationBars.begin(); itr!=m_pNavigationBars.end(); itr++)
         {
-            if (m_pNavigationBarBackGroundImage)
+            if (m_pNavigationBarBackgroundImage)
             {
-                (*itr)->setBackGroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackGroundImage));
+                (*itr)->setBackgroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackgroundImage));
             }
             else
             {
-                (*itr)->setBackGroundView(CAView::create());
+                (*itr)->setBackgroundView(CAView::create());
             }
-            (*itr)->getBackGroundView()->setColor(m_sNavigationBarBackGroundColor);
+            (*itr)->getBackgroundView()->setColor(m_sNavigationBarBackgroundColor);
         }
     }
 }
 
-CAImage* CANavigationController::getNavigationBarBackGroundImage()
+CAImage* CANavigationController::getNavigationBarBackgroundImage()
 {
-    return m_pNavigationBarBackGroundImage;
+    return m_pNavigationBarBackgroundImage;
 }
 
-void CANavigationController::setNavigationBarBackGroundColor(const CAColor4B &var)
+void CANavigationController::setNavigationBarBackgroundColor(const CAColor4B &var)
 {
-    m_sNavigationBarBackGroundColor = var;
-    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackGroundImage);
+    m_sNavigationBarBackgroundColor = var;
+    CC_SAFE_RELEASE_NULL(m_pNavigationBarBackgroundImage);
     
     if (!m_pNavigationBars.empty())
     {
-        CAVector<CANavigationBar*>::iterator itr;
+        CADeque<CANavigationBar*>::iterator itr;
         for (itr=m_pNavigationBars.begin(); itr!=m_pNavigationBars.end(); itr++)
         {
-            if (m_pNavigationBarBackGroundImage)
+            if (m_pNavigationBarBackgroundImage)
             {
-                (*itr)->setBackGroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackGroundImage));
+                (*itr)->setBackgroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackgroundImage));
             }
             else
             {
-                (*itr)->setBackGroundView(CAView::create());
+                (*itr)->setBackgroundView(CAView::create());
             }
-            (*itr)->getBackGroundView()->setColor(m_sNavigationBarBackGroundColor);
+            (*itr)->getBackgroundView()->setColor(m_sNavigationBarBackgroundColor);
         }
     }
 }
 
-const CAColor4B& CANavigationController::getNavigationBarBackGroundColor()
+const CAColor4B& CANavigationController::getNavigationBarBackgroundColor()
 {
-    return m_sNavigationBarBackGroundColor;
+    return m_sNavigationBarBackgroundColor;
 }
 
 void CANavigationController::setNavigationBarTitleColor(const CAColor4B &var)
@@ -309,7 +329,7 @@ void CANavigationController::setNavigationBarTitleColor(const CAColor4B &var)
     
     if (!m_pNavigationBars.empty())
     {
-        CAVector<CANavigationBar*>::iterator itr;
+        CADeque<CANavigationBar*>::iterator itr;
         for (itr=m_pNavigationBars.begin(); itr!=m_pNavigationBars.end(); itr++)
         {
             (*itr)->setTitleColor(m_sNavigationBarTitleColor);
@@ -328,7 +348,7 @@ void CANavigationController::setNavigationBarButtonColor(const CAColor4B &var)
     
     if (!m_pNavigationBars.empty())
     {
-        CAVector<CANavigationBar*>::iterator itr;
+        CADeque<CANavigationBar*>::iterator itr;
         for (itr=m_pNavigationBars.begin(); itr!=m_pNavigationBars.end(); itr++)
         {
             (*itr)->setButtonColor(m_sNavigationBarButtonColor);
@@ -341,7 +361,7 @@ const CAColor4B& CANavigationController::getNavigationBarButtonColor()
     return m_sNavigationBarButtonColor;
 }
 
-bool CANavigationController::initWithRootViewController(CAViewController* viewController, CABarVerticalAlignment var)
+bool CANavigationController::initWithRootViewController(CAViewController* viewController)
 {
     CAViewController::init();
     
@@ -354,10 +374,8 @@ bool CANavigationController::initWithRootViewController(CAViewController* viewCo
     {
         return false;
     }
-    
-    m_eNavigationBarVerticalAlignment = var;
-    
-    this->createWithContainer(viewController);
+
+    m_pViewControllers.pushBack(viewController);
     
     return true;
 }
@@ -371,14 +389,14 @@ void CANavigationController::updateItem(CAViewController* viewController)
         viewController->getNavigationBarItem()->setShowGoBackButton(false);
     }
     
-    if (m_pNavigationBarBackGroundImage)
+    if (m_pNavigationBarBackgroundImage)
     {
-        m_pNavigationBars.at(index)->setBackGroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackGroundImage));
+        m_pNavigationBars.at(index)->setBackgroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackgroundImage));
     }
     else
     {
-        m_pNavigationBars.at(index)->setBackGroundView(CAView::create());
-        m_pNavigationBars.at(index)->getBackGroundView()->setColor(m_sNavigationBarBackGroundColor);
+        m_pNavigationBars.at(index)->setBackgroundView(CAView::create());
+        m_pNavigationBars.at(index)->getBackgroundView()->setColor(m_sNavigationBarBackgroundColor);
     }
 
     m_pNavigationBars.at(index)->setTitleColor(m_sNavigationBarTitleColor);
@@ -388,19 +406,26 @@ void CANavigationController::updateItem(CAViewController* viewController)
 
 void CANavigationController::viewDidLoad()
 {
+    CAViewController* viewController = m_pViewControllers.front();
+    viewController->retain()->autorelease();
+    m_pViewControllers.popFront();
+    this->createWithContainer(viewController);
+    
+    m_tNavigationBarSize = m_pNavigationBars.front()->getFrame().size;
+    
     this->layoutNewContainer();
 }
 
 void CANavigationController::viewDidUnload()
 {
-    for (std::vector<CAViewController*>::iterator itr=m_pViewControllers.begin();
+    for (CADeque<CAViewController*>::iterator itr=m_pViewControllers.begin();
          itr!=m_pViewControllers.end();
          itr++)
     {
         (*itr)->removeViewFromSuperview();
     }
     
-    for (std::vector<CAView*>::iterator itr=m_pContainers.begin();
+    for (CADeque<CAView*>::iterator itr=m_pContainers.begin();
          itr!=m_pContainers.end();
          itr++)
     {
@@ -431,25 +456,10 @@ void CANavigationController::createWithContainer(CAViewController* viewControlle
     CAView* container = new CAView();
     container->setFrame(this->getView()->getBounds());
     this->getView()->addSubview(container);
-    container->release();
     m_pContainers.pushBack(container);
+    container->release();
     
-    CANavigationBar* navigationBar = CANavigationBar::create();
-    if (m_pNavigationBarBackGroundImage)
-    {
-        navigationBar->setBackGroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackGroundImage));
-    }
-    else
-    {
-        navigationBar->setBackGroundView(CAView::create());
-    }
-    navigationBar->getBackGroundView()->setColor(m_sNavigationBarBackGroundColor);
-    navigationBar->setTitleColor(m_sNavigationBarTitleColor);
-    navigationBar->setTitleColor(m_sNavigationBarTitleColor);
-    container->insertSubview(navigationBar, 1);
-    navigationBar->setDelegate(this);
-    m_pNavigationBars.pushBack(navigationBar);
-    
+    CANavigationBar* navigationBar = CANavigationBar::create(DSize(this->getView()->getBounds().size.width, 0));
     if (viewController->getNavigationBarItem() == NULL && viewController->getTitle().compare("") != 0)
     {
         viewController->setNavigationBarItem(CANavigationBarItem::create(viewController->getTitle()));
@@ -459,6 +469,21 @@ void CANavigationController::createWithContainer(CAViewController* viewControlle
         viewController->getNavigationBarItem()->setShowGoBackButton(false);
     }
     navigationBar->setItem(viewController->getNavigationBarItem());
+    
+    if (m_pNavigationBarBackgroundImage)
+    {
+        navigationBar->setBackgroundView(CAScale9ImageView::createWithImage(m_pNavigationBarBackgroundImage));
+    }
+    else
+    {
+        navigationBar->setBackgroundView(CAView::create());
+    }
+    navigationBar->getBackgroundView()->setColor(m_sNavigationBarBackgroundColor);
+    navigationBar->setTitleColor(m_sNavigationBarTitleColor);
+    navigationBar->setTitleColor(m_sNavigationBarTitleColor);
+    container->insertSubview(navigationBar, 1);
+    navigationBar->setDelegate(this);
+    m_pNavigationBars.pushBack(navigationBar);
     
     CAView* secondContainer = new CAView();
     container->addSubview(secondContainer);
@@ -471,32 +496,23 @@ void CANavigationController::createWithContainer(CAViewController* viewControlle
 
 void CANavigationController::layoutNewContainer()
 {
-    CCRect navigation_bar_rect = CCRectZero;
+    CAViewController* viewController = m_pViewControllers.back();
     
-    CCRect container_rect = this->getView()->getBounds();
+    DRect navigation_bar_rect = DRectZero;
+    navigation_bar_rect.size = m_tNavigationBarSize;
     
-    if (m_bNavigationBarHidden)
+    DRect container_rect = this->getView()->getBounds();
+    
+    if (m_bNavigationBarHidden || viewController->getNavigationBarItem()->isNagigationBarHidden())
     {
-        if (m_eNavigationBarVerticalAlignment == CABarVerticalAlignmentTop)
-        {
-            navigation_bar_rect.origin.y = -m_tNavigationBarSize.height;
-        }
-        else
-        {
-            navigation_bar_rect.origin.y = container_rect.size.height;
-        }
+        navigation_bar_rect.origin = this->getNavigationBarTakeBackPoint();
     }
     else
     {
         container_rect.size.height -= m_tNavigationBarSize.height;
-        if (m_eNavigationBarVerticalAlignment == CABarVerticalAlignmentTop)
-        {
-            container_rect.origin.y = m_tNavigationBarSize.height;
-        }
-        else
-        {
-            navigation_bar_rect.origin.y = container_rect.size.height;
-        }
+        navigation_bar_rect.origin = this->getNavigationBarOpenPoint();
+        
+        container_rect.origin.y = m_tNavigationBarSize.height;
     }
     
     CAView* container = m_pContainers.back();
@@ -508,9 +524,12 @@ void CANavigationController::layoutNewContainer()
     CAView* secondContainer = m_pSecondContainers.back();
     secondContainer->setFrame(container_rect);
     
-    CAViewController* viewController = m_pViewControllers.back();
+    
     viewController->addViewFromSuperview(secondContainer);
-    viewController->viewDidAppear();
+    if (m_pViewControllers.size() > 1)
+    {
+        viewController->viewDidAppear();
+    }
 }
 
 void CANavigationController::replaceViewController(CrossApp::CAViewController *viewController, bool animated)
@@ -520,27 +539,35 @@ void CANavigationController::replaceViewController(CrossApp::CAViewController *v
         return;
     }
     
-    float x = this->getView()->getBounds().size.width;
-    
-    CAView* lastContainer = m_pContainers.back();
-    this->createWithContainer(viewController);
-    this->layoutNewContainer();
-    if (m_pNavigationBars.size() == 2)
+    if (m_pNavigationBars.size() == 1)
     {
         CANavigationBarItem* item = viewController->getNavigationBarItem();
+        if (item == NULL)
+        {
+            item = CANavigationBarItem::create("");
+        }
         item->setShowGoBackButton(false);
         viewController->setNavigationBarItem(item);
     }
+    
+    float x = this->getView()->getBounds().size.width;
+
+    CAView* lastContainer = m_pContainers.back();
+    this->createWithContainer(viewController);
+    this->layoutNewContainer();
     CAView* newContainer = m_pContainers.back();
-    newContainer->setFrameOrigin(CCPoint(x, 0));
+    
+    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     
     if (animated)
     {
+        newContainer->setFrameOrigin(DPoint(x, 0));
+        
         CAViewAnimation::beginAnimations("", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(1/30.0f);
-        CAViewAnimation::setAnimationCurve(CAViewAnimationCurveLinear);
-        lastContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
+        CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
+        lastContainer->setFrameOrigin(DPoint(-x/2.0f, 0));
         CAViewAnimation::commitAnimations();
         
         CAViewAnimation::beginAnimations("", NULL);
@@ -548,7 +575,7 @@ void CANavigationController::replaceViewController(CrossApp::CAViewController *v
         CAViewAnimation::setAnimationDelay(1/60.0f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::replaceViewControllerFinish));
-        newContainer->setFrameOrigin(CCPointZero);
+        newContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
     }
     else
@@ -560,21 +587,19 @@ void CANavigationController::replaceViewController(CrossApp::CAViewController *v
 void CANavigationController::replaceViewControllerFinish()
 {
     CAView* newContainer = m_pContainers.back();
-    newContainer->setFrameOrigin(CCPointZero);
+    newContainer->setFrameOrigin(DPointZero);
     
     size_t index = m_pViewControllers.size() - 2;
-    
     CAViewController* lastViewController = m_pViewControllers.at(index);
     lastViewController->viewDidDisappear();
     lastViewController->m_pNavigationController = NULL;
     lastViewController->removeViewFromSuperview();
-    lastViewController->retain()->autorelease();
     m_pViewControllers.erase(index);
     
     CAView* backContainer = m_pContainers.at(index);
     backContainer->removeFromSuperview();
     m_pContainers.erase(index);
-    
+    m_pSecondContainers.erase(index);
     m_pNavigationBars.erase(index);
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
 }
@@ -592,17 +617,18 @@ void CANavigationController::pushViewController(CAViewController* viewController
     this->createWithContainer(viewController);
     this->layoutNewContainer();
     CAView* newContainer = m_pContainers.back();
-    newContainer->setFrameOrigin(CCPoint(x, 0));
     
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     
     if (animated)
     {
+        newContainer->setFrameOrigin(DPoint(x, 0));
+        
         CAViewAnimation::beginAnimations("", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(1/30.0f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
-        lastContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
+        lastContainer->setFrameOrigin(DPoint(-x/2.0f, 0));
         CAViewAnimation::commitAnimations();
         
         CAViewAnimation::beginAnimations("", NULL);
@@ -610,7 +636,7 @@ void CANavigationController::pushViewController(CAViewController* viewController
         CAViewAnimation::setAnimationDelay(1/60.0f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::pushViewControllerFinish));
-        newContainer->setFrameOrigin(CCPointZero);
+        newContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
         
     }
@@ -622,19 +648,15 @@ void CANavigationController::pushViewController(CAViewController* viewController
 
 void CANavigationController::pushViewControllerFinish()
 {
-    float x = this->getView()->getBounds().size.width;
-    
     CAView* lastContainer = m_pContainers.at(m_pContainers.size() - 2);
     lastContainer->setVisible(false);
-    lastContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
     
     CAView* newContainer = m_pContainers.back();
-    newContainer->setFrameOrigin(CCPointZero);
+    newContainer->setFrameOrigin(DPointZero);
     
     CAViewController* lastViewController = m_pViewControllers.at(m_pViewControllers.size() - 2);
     lastViewController->viewDidDisappear();
     
-    m_bSlidingMinX = m_pViewControllers.size() <= 1;
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
 }
 
@@ -647,28 +669,46 @@ CAViewController* CANavigationController::popViewControllerAnimated(bool animate
 
     float x = this->getView()->getBounds().size.width;
     
+    CAViewController* backViewController = m_pViewControllers.back();
+    CAView* backContainer = m_pContainers.back();
+    {
+        backContainer->setFrameOrigin(DPointZero);
+    }
+    
     size_t index = m_pViewControllers.size() - 2;
     CAViewController* showViewController = m_pViewControllers.at(index);
     showViewController->viewDidAppear();
     
-    CAViewController* backViewController = m_pViewControllers.back();
-    
-    CAView* showContainer = m_pContainers.at(m_pContainers.size() - 2);
+    CAView* showContainer = m_pContainers.at(index);
     showContainer->setVisible(true);
-    showContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
     
-    CAView* backContainer = m_pContainers.back();
-    backContainer->setFrameOrigin(CCPointZero);
+    
+    {
+        DPoint point = this->getNavigationBarNowPoint(showViewController);
+        
+        DRect rect = this->getView()->getBounds();
+        rect.origin.y = point.y + m_tNavigationBarSize.height;
+        rect.size.height = rect.size.height - rect.origin.y;
+        
+        m_pNavigationBars.at(index)->setFrameOrigin(point);
+        
+        CAView* secondContainer = m_pSecondContainers.at(index);
+        secondContainer->setFrame(rect);
+        
+        showViewController->getSuperViewRect(secondContainer->getBounds());
+    }
     
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     
     if (animated)
     {
+        showContainer->setFrameOrigin(DPoint(-x/2.0f, 0));
+        
         CAViewAnimation::beginAnimations("", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(1/30.0f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
-        showContainer->setFrameOrigin(CCPointZero);
+        showContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
         
         CAViewAnimation::beginAnimations("", NULL);
@@ -676,7 +716,7 @@ CAViewController* CANavigationController::popViewControllerAnimated(bool animate
         CAViewAnimation::setAnimationDelay(1/60.0f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::popViewControllerFinish));
-        backContainer->setFrameOrigin(CCPoint(x, 0));
+        backContainer->setFrameOrigin(DPoint(x, 0));
         CAViewAnimation::commitAnimations();
     }
     else
@@ -684,6 +724,27 @@ CAViewController* CANavigationController::popViewControllerAnimated(bool animate
         this->popViewControllerFinish();
     }
     return backViewController;
+}
+
+void CANavigationController::popViewControllerFinish()
+{
+    CAViewController* backViewController = m_pViewControllers.back();
+    backViewController->viewDidDisappear();
+    backViewController->m_pNavigationController = NULL;
+    backViewController->removeViewFromSuperview();
+    backViewController->retain()->autorelease();
+    m_pViewControllers.popBack();
+    
+    m_pContainers.back()->removeFromSuperview();
+    m_pContainers.popBack();
+    
+    m_pSecondContainers.popBack();
+    
+    m_pNavigationBars.popBack();
+    
+    m_pContainers.back()->setFrameOrigin(DPointZero);
+    
+    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
 }
 
 // sprhawk@163.com: 2015-03-08
@@ -696,18 +757,30 @@ void CANavigationController::popToRootViewControllerAnimated(bool animated)
     
     float x = this->getView()->getBounds().size.width;
     
+    CAView* backContainer = m_pContainers.back();
+    backContainer->setFrameOrigin(DPointZero);
+    
     size_t index = 0;
     CAViewController* showViewController = m_pViewControllers.at(index);
     showViewController->viewDidAppear();
     
-    //    CAViewController* backViewController = m_pViewControllers.back();
-    
     CAView* showContainer = m_pContainers.at(index);
     showContainer->setVisible(true);
-    showContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
+    showContainer->setFrameOrigin(DPoint(-x/2.0f, 0));
     
-    CAView* backContainer = m_pContainers.back();
-    backContainer->setFrameOrigin(CCPointZero);
+    {
+        DPoint point = this->getNavigationBarNowPoint(showViewController);
+        
+        DRect rect = this->getView()->getBounds();
+        rect.origin.y = point.y + m_tNavigationBarSize.height;
+        rect.size.height = rect.size.height - rect.origin.y;
+        m_pNavigationBars.at(index)->setFrameOrigin(point);
+        
+        CAView* secondContainer = m_pSecondContainers.at(index);
+        secondContainer->setFrame(rect);
+        
+        showViewController->getSuperViewRect(secondContainer->getBounds());
+    }
     
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     
@@ -717,7 +790,7 @@ void CANavigationController::popToRootViewControllerAnimated(bool animated)
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(0.02f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
-        showContainer->setFrameOrigin(CCPointZero);
+        showContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
         
         CAViewAnimation::beginAnimations("", NULL);
@@ -725,7 +798,7 @@ void CANavigationController::popToRootViewControllerAnimated(bool animated)
         CAViewAnimation::setAnimationDelay(0.03f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::popToRootViewControllerFinish));
-        backContainer->setFrameOrigin(CCPoint(x, 0));
+        backContainer->setFrameOrigin(DPoint(x, 0));
         CAViewAnimation::commitAnimations();
     }
     else
@@ -737,73 +810,88 @@ void CANavigationController::popToRootViewControllerAnimated(bool animated)
 // sprhawk@163.com: 2015-03-08
 void CANavigationController::popToRootViewControllerFinish()
 {
-    CAViewController* backViewController = m_pViewControllers.back();
-    backViewController->viewDidDisappear();
-    backViewController->m_pNavigationController = NULL;
-    backViewController->removeViewFromSuperview();
-    backViewController->retain()->autorelease();
-    m_pViewControllers.popBack();
-    if (m_pViewControllers.size() > 1) {
-        for (CAVector<CAViewController*>::iterator i = m_pViewControllers.begin() + 1; i != m_pViewControllers.end(); i ++) {
-            backViewController = *i;
-            backViewController->m_pNavigationController = NULL;
-            backViewController->removeViewFromSuperview();
-            backViewController->retain()->autorelease();
-            m_pViewControllers.erase(i);
-        }
-    }
-
-    CAView* backContainer = m_pContainers.back();
-    backContainer->removeFromSuperview();
-    m_pContainers.popBack();
-    
-    if (m_pContainers.size() > 1) {
-        for (CAVector<CAView *>::iterator i = m_pContainers.begin() + 1; i != m_pContainers.end(); i ++) {
-            CAView* backContainer = *i;
-            backContainer->removeFromSuperview();
-            m_pContainers.erase(i);
-        }
+    while (m_pViewControllers.size() > 1)
+    {
+        CAViewController* backViewController = m_pViewControllers.back();
+        backViewController->viewDidDisappear();
+        backViewController->m_pNavigationController = NULL;
+        backViewController->removeViewFromSuperview();
+        m_pViewControllers.popBack();
+        
+        m_pContainers.back()->removeFromSuperview();
+        m_pContainers.popBack();
+        
+        m_pSecondContainers.popBack();
+        
+        m_pNavigationBars.popBack();
     }
     
-    m_pNavigationBars.popBack();
-    if (m_pNavigationBars.size() > 1) {
-        for (CAVector<CANavigationBar *>::iterator i = m_pNavigationBars.begin() + 1; i != m_pNavigationBars.end(); i ++) {
-            m_pNavigationBars.erase(i);            
-        }
-    }
+    m_pViewControllers.back()->getView()->setFrameOrigin(DPointZero);
     
-    m_bSlidingMinX = m_pViewControllers.size() <= 1;
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
-}
-
-void CANavigationController::popViewControllerFinish()
-{
-    CAViewController* backViewController = m_pViewControllers.back();
-    backViewController->viewDidDisappear();
-    backViewController->m_pNavigationController = NULL;
-    backViewController->removeViewFromSuperview();
-    backViewController->retain()->autorelease();
-    m_pViewControllers.popBack();
-    
-    CAView* backContainer = m_pContainers.back();
-    backContainer->removeFromSuperview();
-    m_pContainers.popBack();
-    
-    m_pNavigationBars.popBack();
-    
-    m_bSlidingMinX = m_pViewControllers.size() <= 1;
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
 }
 
 void CANavigationController::homingViewControllerFinish()
 {
     size_t index = m_pViewControllers.size() - 2;
-    CAViewController* lastViewController = m_pViewControllers.at(index);
-    lastViewController->viewDidDisappear();
-    
+
     CAView* lastContainer = m_pContainers.at(index);
     lastContainer->setVisible(false);
+    
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
+}
+
+CAViewController* CANavigationController::popFirstViewController()
+{
+    if (m_pViewControllers.size() <= 1)
+    {
+        return NULL;
+    }
+    
+    CAViewController* frontViewController = m_pViewControllers.front();
+    frontViewController->viewDidDisappear();
+    frontViewController->m_pNavigationController = NULL;
+    frontViewController->removeViewFromSuperview();
+    frontViewController->retain()->autorelease();
+    m_pViewControllers.popFront();
+    
+    m_pContainers.front()->removeFromSuperview();
+    m_pContainers.popFront();
+    
+    m_pSecondContainers.popFront();
+    
+    m_pNavigationBars.popFront();
+    
+    return frontViewController;
+}
+
+CAViewController* CANavigationController::popViewControllerAtIndex(int index)
+{
+    if (index >= m_pViewControllers.size() || index < 0)
+    {
+        return NULL;
+    }
+    
+    if (index == m_pViewControllers.size() - 1)
+    {
+        return this->popViewControllerAnimated(false);
+    }
+    
+    CAViewController* viewController = m_pViewControllers.at(index);
+    viewController->viewDidDisappear();
+    viewController->m_pNavigationController = NULL;
+    viewController->removeViewFromSuperview();
+    viewController->retain()->autorelease();
+    m_pViewControllers.erase(index);
+    
+    m_pContainers.at(index)->removeFromSuperview();
+    m_pContainers.erase(index);
+    
+    m_pSecondContainers.erase(index);
+    
+    m_pNavigationBars.erase(index);
+    
+    return viewController;
 }
 
 void CANavigationController::navigationPopViewController(CANavigationBar* navigationBar, bool animated)
@@ -835,63 +923,20 @@ void CANavigationController::setNavigationBarHidden(bool hidden, bool animated)
     m_bNavigationBarHidden = hidden;
     CC_RETURN_IF(this->getView()->getSuperview() == NULL);
     
-    CCPoint point = CCPointZero;
-    
-    if (m_bNavigationBarHidden)
-    {
-        switch (m_eNavigationBarVerticalAlignment)
-        {
-            case CABarVerticalAlignmentTop:
-            {
-                point.y = -m_tNavigationBarSize.height;
-            }
-                break;
-            case CABarVerticalAlignmentBottom:
-            {
-                point.y = this->getView()->getBounds().size.height;
-            }
-                break;
-            default:
-                break;
-        }
-    }
-    else
-    {
-        switch (m_eNavigationBarVerticalAlignment)
-        {
-            case CABarVerticalAlignmentTop:
-            {
-                point.y = 0;
-            }
-                break;
-            case CABarVerticalAlignmentBottom:
-            {
-                point.y = this->getView()->getBounds().size.height - m_tNavigationBarSize.height;
-            }
-                break;
-            default:
-                break;
-        }
-    }
-    
-    for (int i=0; i<m_pNavigationBars.size() - 1; i++)
-    {
-        m_pNavigationBars.at(i)->setFrameOrigin(point);
-        this->updateNavigationBarHidden(i);
-    }
-    
     if (animated)
     {
-        m_pNavigationBars.back()->setVisible(true);
-        this->scheduleUpdate();
+        CAAnimation::schedule(CAAnimation_selector(CANavigationController::navigationBarHiddenAnimation), this, 0.25f);
+        
         CAViewAnimation::beginAnimations("", NULL);
-        CAViewAnimation::setAnimationDuration(0.2f);
-        CAViewAnimation::setAnimationDelay(0.1f);
-        CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::unScheduleUpdate));
+        CAViewAnimation::setAnimationDuration(0.25f);
+        CAViewAnimation::setAnimationWillStartSelector(CAApplication::getApplication()->getTouchDispatcher(), CAViewAnimation0_selector(CATouchDispatcher::setDispatchEventsFalse));
+        CAViewAnimation::setAnimationDidStopSelector(CAApplication::getApplication()->getTouchDispatcher(), CAViewAnimation0_selector(CATouchDispatcher::setDispatchEventsTrue));
         CAViewAnimation::commitAnimations();
     }
     else
     {
+        m_fProgress = 1.0f;
+        DPoint point = this->getNavigationBarNowPoint(m_pViewControllers.back());
         m_pNavigationBars.back()->setFrameOrigin(point);
         if (this->getView()->getSuperview())
         {
@@ -900,64 +945,77 @@ void CANavigationController::setNavigationBarHidden(bool hidden, bool animated)
     }
 }
 
-void CANavigationController::updateNavigationBarHidden(int index)
+DPoint CANavigationController::getNavigationBarOpenPoint()
 {
-    CCRect containerRect = this->getView()->getBounds();
-    containerRect.origin = m_pContainers.at(index)->getFrameOrigin();
-    m_pContainers.at(index)->setFrame(containerRect);
-    CCRect rect = m_pContainers.at(index)->getBounds();
-    CCRect navigationBarFrame = m_pNavigationBars.at(index)->getFrame();
+    DPoint p = DPointZero;
+    p.y = 0;
+    return p;
+}
+
+DPoint CANavigationController::getNavigationBarTakeBackPoint()
+{
+    DPoint p = DPointZero;
+    p.y = -m_tNavigationBarSize.height;
+    return p;
+}
+
+DPoint CANavigationController::getNavigationBarNowPoint(CAViewController* viewController)
+{
+    float offsetY = this->getNavigationBarTakeBackPoint().y - this->getNavigationBarOpenPoint().y;
+    DPoint p = DPointZero;
     
-    switch (m_eNavigationBarVerticalAlignment)
+    if (viewController->getNavigationBarItem() && viewController->getNavigationBarItem()->isNagigationBarHidden())
     {
-        case CABarVerticalAlignmentTop:
-        {
-            rect.origin.y = navigationBarFrame.origin.y + navigationBarFrame.size.height;
-            rect.size.height = rect.size.height - rect.origin.y;
-        }
-            break;
-        case CABarVerticalAlignmentBottom:
-        {
-            rect.size.height = navigationBarFrame.origin.y;
-        }
-            break;
-        default:
-            break;
+        p.y = this->getNavigationBarOpenPoint().y + offsetY;
     }
-    CAView* secondContainer = m_pSecondContainers.at(index);
-    CAViewController* viewController = m_pViewControllers.at(index);
-    secondContainer->setFrame(rect);
-    viewController->getSuperViewRect(secondContainer->getBounds());
+    else
+    {
+        if (m_bNavigationBarHidden)
+        {
+            p.y = this->getNavigationBarOpenPoint().y + offsetY * m_fProgress;
+        }
+        else
+        {
+            p.y = this->getNavigationBarTakeBackPoint().y - offsetY * m_fProgress;
+        }
+    }
+    return p;
+}
+
+void CANavigationController::navigationBarHiddenAnimation(float delay, float now, float total)
+{
+    m_fProgress = now / total;
+
+    if (this->getView()->getSuperview())
+    {
+        this->update(0);
+    }
 }
 
 void CANavigationController::update(float dt)
 {
-    this->updateNavigationBarHidden((unsigned int)m_pNavigationBars.size() - 1);
-}
+    CAViewController* viewController = m_pViewControllers.back();
+    
+    DPoint point = this->getNavigationBarNowPoint(viewController);
 
-void CANavigationController::scheduleUpdate()
-{
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
-    CAScheduler::unschedule(schedule_selector(CANavigationController::update), this);
-    CAScheduler::schedule(schedule_selector(CANavigationController::update), this, 1/60.0f);
-}
-
-void CANavigationController::unScheduleUpdate()
-{
-    CAScheduler::unschedule(schedule_selector(CANavigationController::update), this);
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
-    if (m_bNavigationBarHidden)
-    {
-        m_pNavigationBars.back()->setVisible(false);
-    }
-    else
-    {
-        m_pNavigationBars.back()->setVisible(true);
-    }
+    DRect rect = this->getView()->getBounds();
+    rect.origin.y = point.y + m_tNavigationBarSize.height;
+    rect.size.height = rect.size.height - rect.origin.y;
+    m_pNavigationBars.back()->setFrameOrigin(point);
+    
+    CAView* secondContainer = m_pSecondContainers.back();
+    secondContainer->setFrame(rect);
+    
+    viewController->getSuperViewRect(secondContainer->getBounds());
 }
 
 bool CANavigationController::ccTouchBegan(CATouch *pTouch, CAEvent *pEvent)
 {
+    if (pTouch->getLocation().x > 48)
+    {
+        return false;
+    }
+    
     m_bPopViewController = false;
     return true;
 }
@@ -976,28 +1034,28 @@ void CANavigationController::ccTouchMoved(CATouch *pTouch, CAEvent *pEvent)
     
     CAView* backContainer = m_pContainers.back();
     
-    CCPoint point1 = backContainer->getFrameOrigin();
+    DPoint point1 = backContainer->getFrameOrigin();
     point1.x += offDis;
     point1.x = MAX(point1.x, 0);
     point1.x = MIN(point1.x, this->getView()->getBounds().size.width);
     backContainer->setFrameOrigin(point1);
     
-    CCPoint point2 = showContainer->getCenterOrigin();
+    DPoint point2 = showContainer->getCenterOrigin();
     point2.x = point1.x/2;
     showContainer->setCenterOrigin(point2);
     
-    m_bPopViewController = ((offDis > _px(10)) || point1.x > this->getView()->getBounds().size.width/4);
+    m_bPopViewController = ((offDis > 10) || point1.x > this->getView()->getBounds().size.width/4);
 }
 
 void CANavigationController::ccTouchEnded(CATouch *pTouch, CAEvent *pEvent)
 {
+    CC_RETURN_IF(CAViewAnimation::areBeginAnimationsWithID("navigation_animation"));
     CC_RETURN_IF(m_pViewControllers.size() <= 1);
     
     float x = this->getView()->getBounds().size.width;
     size_t index = m_pViewControllers.size() - 2;
     CAViewController* lastViewController = m_pViewControllers.at(index);
-    lastViewController->viewDidAppear();
-
+    
     CAView* lastContainer = m_pContainers.at(index);
     lastContainer->setVisible(true);
     
@@ -1007,36 +1065,38 @@ void CANavigationController::ccTouchEnded(CATouch *pTouch, CAEvent *pEvent)
     
     if (m_bPopViewController)
     {
-        CAViewAnimation::beginAnimations("", NULL);
+        lastViewController->viewDidAppear();
+        
+        CAViewAnimation::beginAnimations("navigation_animation", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(0.02f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
-        lastContainer->setFrameOrigin(CCPointZero);
+        lastContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
         
-        CAViewAnimation::beginAnimations("", NULL);
+        CAViewAnimation::beginAnimations("navigation_animation2", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(0.03f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::popViewControllerFinish));
-        backContainer->setFrameOrigin(CCPoint(x, 0));
+        backContainer->setFrameOrigin(DPoint(x, 0));
         CAViewAnimation::commitAnimations();
     }
     else
     {
-        CAViewAnimation::beginAnimations("", NULL);
+        CAViewAnimation::beginAnimations("navigation_animation", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(0.03f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
-        lastContainer->setFrameOrigin(CCPoint(-x/2.0f, 0));
+        lastContainer->setFrameOrigin(DPoint(-x/2.0f, 0));
         CAViewAnimation::commitAnimations();
         
-        CAViewAnimation::beginAnimations("", NULL);
+        CAViewAnimation::beginAnimations("navigation_animation2", NULL);
         CAViewAnimation::setAnimationDuration(0.25f);
         CAViewAnimation::setAnimationDelay(0.02f);
         CAViewAnimation::setAnimationCurve(CAViewAnimationCurveEaseOut);
         CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CANavigationController::homingViewControllerFinish));
-        backContainer->setFrameOrigin(CCPointZero);
+        backContainer->setFrameOrigin(DPointZero);
         CAViewAnimation::commitAnimations();
     }
 }
@@ -1048,12 +1108,18 @@ void CANavigationController::ccTouchCancelled(CATouch *pTouch, CAEvent *pEvent)
 
 void CANavigationController::setTouchMoved(bool var)
 {
-    m_bTouchMovedStopSubviews = m_bTouchMoved = var;
+    m_bTouchMoved = var;
+    this->setPriorityScroll(var);
 }
 
 bool CANavigationController::isTouchMoved()
 {
     return m_bTouchMoved;
+}
+
+bool CANavigationController::isReachBoundaryLeft()
+{
+    return m_pViewControllers.size() == 1;
 }
 
 #pragma CATabBarController
@@ -1064,97 +1130,101 @@ CATabBarController::CATabBarController()
 ,m_pTabBar(NULL)
 ,m_pContainer(NULL)
 ,m_bTabBarHidden(false)
-,m_bscrollEnabled(false)
-,m_pTabBarBackGroundImage(NULL)
-,m_pTabBarSelectedBackGroundImage(NULL)
+,m_pTabBarBackgroundImage(NULL)
+,m_pTabBarSelectedBackgroundImage(NULL)
 ,m_pTabBarSelectedIndicatorImage(NULL)
-,m_sTabBarBackGroundColor(CAColor_white)
-,m_sTabBarSelectedBackGroundColor(CAColor_white)
+,m_sTabBarBackgroundColor(CAColor_white)
+,m_sTabBarSelectedBackgroundColor(CAColor_white)
 ,m_sTabBarSelectedIndicatorColor(CAColor_white)
 ,m_sTabBarTitleColor(CAColor_white)
 ,m_sTabBarSelectedTitleColor(ccc4(50, 193, 255, 255))
 ,m_bShowTabBarSelectedIndicator(false)
+,m_fProgress(1.0f)
 {
     m_pView->setColor(CAColor_clear);
     m_pView->setDisplayRange(false);
     
-    this->setTabBarBackGroundImage(CAImage::create("source_material/tabBar_bg.png"));
-    this->setTabBarSelectedBackGroundImage(CAImage::create("source_material/tabBar_selected_bg.png"));
+    this->setTabBarBackgroundImage(CAImage::create("source_material/tabBar_bg.png"));
+    
+    this->setTabBarSelectedBackgroundImage(CAImage::create("source_material/tabBar_selected_bg.png"));
+    
     this->setTabBarSelectedIndicatorImage(CAImage::create("source_material/tabBar_selected_indicator.png"));
 }
 
 CATabBarController::~CATabBarController()
 {
     m_pViewControllers.clear();
-    CC_SAFE_RELEASE_NULL(m_pTabBar);
+    CC_SAFE_RELEASE_NULL(m_pTabBarBackgroundImage);
+    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedBackgroundImage);
+    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedIndicatorImage);
 }
 
-void CATabBarController::setTabBarBackGroundImage(CrossApp::CAImage *var)
+void CATabBarController::setTabBarBackgroundImage(CrossApp::CAImage *var)
 {
     CC_SAFE_RETAIN(var);
-    CC_SAFE_RELEASE_NULL(m_pTabBarBackGroundImage);
-    m_pTabBarBackGroundImage = var;
-    m_sTabBarBackGroundColor = CAColor_white;
+    CC_SAFE_RELEASE_NULL(m_pTabBarBackgroundImage);
+    m_pTabBarBackgroundImage = var;
+    m_sTabBarBackgroundColor = CAColor_white;
     
     if (m_pTabBar)
     {
-        m_pTabBar->setBackGroundImage(m_pTabBarBackGroundImage);
+        m_pTabBar->setBackgroundImage(m_pTabBarBackgroundImage);
     }
 }
 
-CAImage* CATabBarController::getTabBarBackGroundImage()
+CAImage* CATabBarController::getTabBarBackgroundImage()
 {
-    return m_pTabBarBackGroundImage;
+    return m_pTabBarBackgroundImage;
 }
 
-void CATabBarController::setTabBarBackGroundColor(const CAColor4B &var)
+void CATabBarController::setTabBarBackgroundColor(const CAColor4B &var)
 {
-    m_sTabBarBackGroundColor = var;
-    CC_SAFE_RELEASE_NULL(m_pTabBarBackGroundImage);
+    m_sTabBarBackgroundColor = var;
+    CC_SAFE_RELEASE_NULL(m_pTabBarBackgroundImage);
     
     if (m_pTabBar)
     {
-        m_pTabBar->setBackGroundColor(m_sTabBarBackGroundColor);
+        m_pTabBar->setBackgroundColor(m_sTabBarBackgroundColor);
     }
 }
 
-const CAColor4B& CATabBarController::getTabBarBackGroundColor()
+const CAColor4B& CATabBarController::getTabBarBackgroundColor()
 {
-    return m_sTabBarBackGroundColor;
+    return m_sTabBarBackgroundColor;
 }
 
-void CATabBarController::setTabBarSelectedBackGroundImage(CrossApp::CAImage *var)
+void CATabBarController::setTabBarSelectedBackgroundImage(CrossApp::CAImage *var)
 {
     CC_SAFE_RETAIN(var);
-    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedBackGroundImage);
-    m_pTabBarSelectedBackGroundImage = var;
-    m_sTabBarSelectedBackGroundColor = CAColor_white;
+    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedBackgroundImage);
+    m_pTabBarSelectedBackgroundImage = var;
+    m_sTabBarSelectedBackgroundColor = CAColor_white;
     
     if (m_pTabBar)
     {
-        m_pTabBar->setSelectedBackGroundImage(m_pTabBarSelectedBackGroundImage);
+        m_pTabBar->setSelectedBackgroundImage(m_pTabBarSelectedBackgroundImage);
     }
 }
 
-CAImage* CATabBarController::getTabBarSelectedBackGroundImage()
+CAImage* CATabBarController::getTabBarSelectedBackgroundImage()
 {
-    return m_pTabBarSelectedBackGroundImage;
+    return m_pTabBarSelectedBackgroundImage;
 }
 
-void CATabBarController::setTabBarSelectedBackGroundColor(const CAColor4B &var)
+void CATabBarController::setTabBarSelectedBackgroundColor(const CAColor4B &var)
 {
-    m_sTabBarSelectedBackGroundColor = var;
-    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedBackGroundImage);
+    m_sTabBarSelectedBackgroundColor = var;
+    CC_SAFE_RELEASE_NULL(m_pTabBarSelectedBackgroundImage);
     
     if (m_pTabBar)
     {
-        m_pTabBar->setSelectedBackGroundColor(m_sTabBarSelectedBackGroundColor);
+        m_pTabBar->setSelectedBackgroundColor(m_sTabBarSelectedBackgroundColor);
     }
 }
 
-const CAColor4B& CATabBarController::getTabBarSelectedBackGroundColor()
+const CAColor4B& CATabBarController::getTabBarSelectedBackgroundColor()
 {
-    return m_sTabBarSelectedBackGroundColor;
+    return m_sTabBarSelectedBackgroundColor;
 }
 
 void CATabBarController::setTabBarSelectedIndicatorImage(CrossApp::CAImage *var)
@@ -1235,35 +1305,7 @@ bool CATabBarController::initWithViewControllers(const CAVector<CAViewController
 {
     CAViewController::init();
     
-    do
-    {
-        CC_BREAK_IF(viewControllers.size() == 0);
-        m_pViewControllers = viewControllers;
-        
-        std::vector<CATabBarItem*> items;
-        
-        for (unsigned int i=0; i<m_pViewControllers.size(); i++)
-        {
-            CAViewController* view = m_pViewControllers.at(i);
-            if (view->getTabBarItem() == NULL)
-            {
-                char title[8];
-                sprintf(title, "item%d", i);
-                CATabBarItem* item = CATabBarItem::create(title, NULL);
-                item->setTag(i);
-                view->setTabBarItem(item);
-            }
-            items.push_back(view->getTabBarItem());
-            view->m_pTabBarController = this;
-        }
-        
-        m_pTabBar = CATabBar::create(items);
-        m_pTabBar->retain();
-        m_pTabBar->setDelegate(this);
-        
-    }
-    while (0);
-    
+    m_pViewControllers = viewControllers;
     m_eTabBarVerticalAlignment = var;
     
     return true;
@@ -1285,56 +1327,53 @@ void CATabBarController::updateItem(CAViewController* viewController)
 
 void CATabBarController::viewDidLoad()
 {
-    CCPoint tab_bar_rectOrgin = CCPointZero;
+    std::vector<CATabBarItem*> items;
     
-    CCRect container_rect = this->getView()->getBounds();
+    for (unsigned int i=0; i<m_pViewControllers.size(); i++)
+    {
+        CAViewController* view = m_pViewControllers.at(i);
+        if (view->getTabBarItem() == NULL)
+        {
+            char title[8];
+            sprintf(title, "item%d", i);
+            CATabBarItem* item = CATabBarItem::create(title, NULL);
+            item->setTag(i);
+            view->setTabBarItem(item);
+        }
+        items.push_back(view->getTabBarItem());
+        view->m_pTabBarController = this;
+    }
     
-    CCSize container_view_size = container_rect.size;
-    container_view_size.width *= m_pViewControllers.size();
+    m_pTabBar = CATabBar::create(items, DSize(this->getView()->getBounds().size.width, 0), m_eTabBarVerticalAlignment);
+    this->getView()->addSubview(m_pTabBar);
+    m_pTabBar->setDelegate(this);
     
+    DRect container_rect = this->getView()->getBounds();
+    
+    DPoint tab_bar_rectOrgin = DPointZero;
     if (m_bTabBarHidden)
     {
-        switch (m_eTabBarVerticalAlignment)
-        {
-            case CABarVerticalAlignmentBottom:
-            {
-                tab_bar_rectOrgin.y = container_rect.size.height;
-            }
-                break;
-            case CABarVerticalAlignmentTop:
-            {
-                tab_bar_rectOrgin.y = -m_pTabBar->getFrame().size.height;
-            }
-                break;
-            default:
-                break;
-        }
+        tab_bar_rectOrgin = this->getTabBarTakeBackPoint();
     }
     else
     {
+        tab_bar_rectOrgin = this->getTabBarOpenPoint();
+        
         container_rect.size.height -= m_pTabBar->getFrame().size.height;
-        switch (m_eTabBarVerticalAlignment)
+        if (m_eTabBarVerticalAlignment == CABarVerticalAlignmentTop)
         {
-            case CABarVerticalAlignmentBottom:
-            {
-                tab_bar_rectOrgin.y = container_rect.size.height;
-            }
-                break;
-            case CABarVerticalAlignmentTop:
-            {
-                container_rect.origin.y = m_pTabBar->getFrame().size.height;
-            }
-                break;
-            default:
-                break;
+            container_rect.origin.y = m_pTabBar->getFrame().size.height;
         }
     }
     
-    m_pContainer = CAPageView::createWithFrame(container_rect, CAPageView::CAPageViewDirectionHorizontal);
-    m_pContainer->setBackGroundColor(CAColor_clear);
+    DSize container_view_size = container_rect.size;
+    container_view_size.width *= m_pViewControllers.size();
+    
+    m_pContainer = CAPageView::createWithFrame(container_rect, CAPageViewDirectionHorizontal);
+    m_pContainer->setBackgroundColor(CAColor_clear);
     m_pContainer->setPageViewDelegate(this);
     m_pContainer->setScrollViewDelegate(this);
-    m_pContainer->setScrollEnabled(m_bscrollEnabled);
+    m_pContainer->setScrollEnabled(m_bScrollEnabled);
     m_pContainer->setDisplayRange(true);
     this->getView()->addSubview(m_pContainer);
     
@@ -1347,23 +1386,23 @@ void CATabBarController::viewDidLoad()
     }
     m_pContainer->setViews(views);
     
-    if (m_pTabBarBackGroundImage)
+    if (m_pTabBarBackgroundImage)
     {
-        m_pTabBar->setBackGroundImage(m_pTabBarBackGroundImage);
+        m_pTabBar->setBackgroundImage(m_pTabBarBackgroundImage);
     }
     else
     {
-        m_pTabBar->setBackGroundColor(m_sTabBarBackGroundColor);
+        m_pTabBar->setBackgroundColor(m_sTabBarBackgroundColor);
     }
     
     
-    if (m_pTabBarSelectedBackGroundImage)
+    if (m_pTabBarSelectedBackgroundImage)
     {
-        m_pTabBar->setSelectedBackGroundImage(m_pTabBarSelectedBackGroundImage);
+        m_pTabBar->setSelectedBackgroundImage(m_pTabBarSelectedBackgroundImage);
     }
     else
     {
-        m_pTabBar->setSelectedBackGroundColor(m_sTabBarSelectedBackGroundColor);
+        m_pTabBar->setSelectedBackgroundColor(m_sTabBarSelectedBackgroundColor);
     }
     
     
@@ -1373,7 +1412,7 @@ void CATabBarController::viewDidLoad()
     }
     else
     {
-        m_pTabBar->setSelectedIndicatorColor(m_sTabBarSelectedBackGroundColor);
+        m_pTabBar->setSelectedIndicatorColor(m_sTabBarSelectedIndicatorColor);
     }
     
     
@@ -1386,7 +1425,7 @@ void CATabBarController::viewDidLoad()
     }
     
     m_pTabBar->setFrameOrigin(tab_bar_rectOrgin);
-    this->getView()->addSubview(m_pTabBar);
+    
     
     m_pTabBar->setSelectedAtIndex(m_nSelectedIndex);
     this->renderingSelectedViewController();
@@ -1394,7 +1433,7 @@ void CATabBarController::viewDidLoad()
 
 void CATabBarController::viewDidUnload()
 {
-    m_pContainer = NULL;
+    this->getView()->removeAllSubviews();
 }
 
 void CATabBarController::viewDidAppear()
@@ -1484,7 +1523,6 @@ void CATabBarController::tabBarSelectedItem(CATabBar* tabBar, CATabBarItem* item
 
 void CATabBarController::pageViewDidEndTurning(CAPageView* pageView)
 {
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
     for (int i = MAX((int)m_nSelectedIndex - 1, 0);
          i < MIN((int)m_nSelectedIndex + 2, m_pViewControllers.size());
          i++)
@@ -1498,7 +1536,6 @@ void CATabBarController::pageViewDidEndTurning(CAPageView* pageView)
 
 void CATabBarController::scrollViewWillBeginDragging(CAScrollView* view)
 {
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     for (int i = MAX((int)m_nSelectedIndex - 1, 0);
          i < MIN((int)m_nSelectedIndex + 2, m_pViewControllers.size());
          i++)
@@ -1506,7 +1543,6 @@ void CATabBarController::scrollViewWillBeginDragging(CAScrollView* view)
         if (!m_pViewControllers.at(i)->getView()->getSuperview())
         {
             CAView* view = m_pContainer->getSubViewAtIndex(i);
-            m_pViewControllers.at(i)->getView()->setFrame(view->getBounds());
             m_pViewControllers.at(i)->addViewFromSuperview(view);
         }
         
@@ -1525,7 +1561,6 @@ void CATabBarController::renderingSelectedViewController()
     if (!m_pViewControllers.at(m_nSelectedIndex)->getView()->getSuperview())
     {
         CAView* view = m_pContainer->getSubViewAtIndex(m_nSelectedIndex);
-        m_pViewControllers.at(m_nSelectedIndex)->getView()->setFrame(view->getBounds());
         m_pViewControllers.at(m_nSelectedIndex)->addViewFromSuperview(view);
     }
     
@@ -1535,16 +1570,64 @@ void CATabBarController::renderingSelectedViewController()
 
 void CATabBarController::setScrollEnabled(bool var)
 {
-    m_bscrollEnabled = var;
+    m_bScrollEnabled = var;
     if (m_pContainer)
     {
-        m_pContainer->setScrollEnabled(m_bscrollEnabled);
+        m_pContainer->setScrollEnabled(m_bScrollEnabled);
     }
 }
 
 bool CATabBarController::isScrollEnabled()
 {
-    return m_bscrollEnabled;
+    return m_bScrollEnabled;
+}
+
+DPoint CATabBarController::getTabBarOpenPoint()
+{
+    DPoint p = DPointZero;
+    float height = this->getView()->getBounds().size.height;
+    
+    if (m_eTabBarVerticalAlignment == CABarVerticalAlignmentTop)
+    {
+        p.y = 0;
+    }
+    else
+    {
+        p.y = height - m_pTabBar->getFrame().size.height;
+    }
+    return p;
+}
+
+DPoint CATabBarController::getTabBarTakeBackPoint()
+{
+    DPoint p = DPointZero;
+    float height = this->getView()->getBounds().size.height;
+    
+    if (m_eTabBarVerticalAlignment == CABarVerticalAlignmentTop)
+    {
+        p.y = -m_pTabBar->getFrame().size.height;
+    }
+    else
+    {
+        p.y = height;
+    }
+    return p;
+}
+
+DPoint CATabBarController::getTabBarNowPoint()
+{
+    float offsetY = this->getTabBarTakeBackPoint().y - this->getTabBarOpenPoint().y;
+    DPoint p = DPointZero;
+    
+    if (m_bTabBarHidden)
+    {
+        p.y = this->getTabBarOpenPoint().y + offsetY * m_fProgress;
+    }
+    else
+    {
+        p.y = this->getTabBarTakeBackPoint().y - offsetY * m_fProgress;
+    }
+    return p;
 }
 
 void CATabBarController::setTabBarHidden(bool hidden, bool animated)
@@ -1553,57 +1636,20 @@ void CATabBarController::setTabBarHidden(bool hidden, bool animated)
     m_bTabBarHidden = hidden;
     CC_RETURN_IF(this->getView()->getSuperview() == NULL);
     
-    CCPoint point = CCPointZero;
-    
-    if (m_bTabBarHidden)
-    {
-        switch (m_eTabBarVerticalAlignment)
-        {
-            case CABarVerticalAlignmentTop:
-            {
-                point.y = -m_pTabBar->getFrame().size.height;
-            }
-                break;
-            case CABarVerticalAlignmentBottom:
-            {
-                point.y = this->getView()->getBounds().size.height;
-            }
-                break;
-            default:
-                break;
-        }
-    }
-    else
-    {
-        switch (m_eTabBarVerticalAlignment)
-        {
-            case CABarVerticalAlignmentTop:
-            {
-                point.y = 0;
-            }
-                break;
-            case CABarVerticalAlignmentBottom:
-            {
-                point.y = this->getView()->getBounds().size.height - m_pTabBar->getFrame().size.height;
-            }
-                break;
-            default:
-                break;
-        }
-    }
-    
     if (animated)
     {
-        m_pTabBar->setVisible(true);
-        this->scheduleUpdate();
+        CAAnimation::schedule(CAAnimation_selector(CATabBarController::tabBarHiddenAnimation), this, 0.25f);
+        
         CAViewAnimation::beginAnimations("", NULL);
-        CAViewAnimation::setAnimationDuration(0.2f);
-        CAViewAnimation::setAnimationDelay(0.1f);
-        CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CATabBarController::unScheduleUpdate));
+        CAViewAnimation::setAnimationDuration(0.3f);
+        CAViewAnimation::setAnimationWillStartSelector(CAApplication::getApplication()->getTouchDispatcher(), CAViewAnimation0_selector(CATouchDispatcher::setDispatchEventsFalse));
+        CAViewAnimation::setAnimationDidStopSelector(CAApplication::getApplication()->getTouchDispatcher(), CAViewAnimation0_selector(CATouchDispatcher::setDispatchEventsTrue));
         CAViewAnimation::commitAnimations();
     }
     else
     {
+        m_fProgress = 1.0f;
+        DPoint point = this->getTabBarNowPoint();
         m_pTabBar->setFrameOrigin(point);
         if (this->getView()->getSuperview())
         {
@@ -1613,54 +1659,49 @@ void CATabBarController::setTabBarHidden(bool hidden, bool animated)
     
 }
 
+void CATabBarController::tabBarHiddenAnimation(float delay, float now, float total)
+{
+    m_fProgress = now / total;
+
+    if (this->getView()->getSuperview())
+    {
+        this->update(0);
+    }
+}
+
 void CATabBarController::update(float dt)
 {
-    CCRect rect = m_pContainer->getFrame();
+    DRect rect = this->getView()->getFrame();
+    
+    DPoint point = this->getTabBarNowPoint();
     
     switch (m_eTabBarVerticalAlignment)
     {
         case CABarVerticalAlignmentTop:
         {
-            rect.origin.y = m_pTabBar->getFrame().origin.y + m_pTabBar->getFrame().size.height;
-            rect.size.height = this->getView()->getBounds().size.height - rect.origin.y;
+            rect.origin.y = point.y + m_pTabBar->getFrame().size.height;
+            rect.size.height = rect.size.height - rect.origin.y;
         }
             break;
         case CABarVerticalAlignmentBottom:
         {
-            rect.size.height = m_pTabBar->getFrame().origin.y;
+            rect.size.height = point.y;
         }
             break;
         default:
             break;
     }
     
+    m_pTabBar->setFrameOrigin(point);
     m_pContainer->setFrame(rect);
     
-    for (unsigned int i=0; i<m_pViewControllers.size(); i++)
+    for (size_t i=0; i<m_pViewControllers.size(); i++)
     {
+        DRect r = m_pContainer->getSubViewAtIndex((int)i)->getFrame();
+        r.size = rect.size;
+        m_pContainer->getSubViewAtIndex((int)i)->setFrame(r);
         CAViewController* viewController = m_pViewControllers.at(i);
         viewController->getSuperViewRect(m_pContainer->getBounds());
-    }
-}
-
-void CATabBarController::scheduleUpdate()
-{
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
-    CAScheduler::unschedule(schedule_selector(CATabBarController::update), this);
-    CAScheduler::schedule(schedule_selector(CATabBarController::update), this, 1/60.0f);
-}
-
-void CATabBarController::unScheduleUpdate()
-{
-    CAScheduler::unschedule(schedule_selector(CATabBarController::update), this);
-    CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsTrue();
-    if (m_bTabBarHidden)
-    {
-        m_pTabBar->setVisible(false);
-    }
-    else
-    {
-        m_pTabBar->setVisible(true);
     }
 }
 

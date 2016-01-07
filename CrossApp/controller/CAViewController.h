@@ -6,8 +6,8 @@
 //  Copyright (c) 2014年 http://9miao.com All rights reserved.
 //
 
-#ifndef __CrossAppx__CAViewController__
-#define __CrossAppx__CAViewController__
+#ifndef __CrossApp__CAViewController__
+#define __CrossApp__CAViewController__
 
 #include <iostream>
 #include "control/CABar.h"
@@ -17,16 +17,11 @@
 
 NS_CC_BEGIN
 
-typedef enum
-{
-    CABarVerticalAlignmentTop = 0,
-    CABarVerticalAlignmentBottom
-}CABarVerticalAlignment;
-
 class CAWindow;
 class CATabBarController;
 class CANavigationController;
 class CADrawerController;
+class CAUIEditorParser;
 
 class CC_DLL CAViewController
 : public CAResponder
@@ -70,6 +65,10 @@ public:
     
     virtual CAView* getView();
     
+    virtual CAResponder* nextResponder();
+
+    CAView* getViewWithID(const std::string& tag);
+    
 public:
     
     virtual bool ccTouchBegan(CATouch *pTouch, CAEvent *pEvent);
@@ -80,8 +79,6 @@ public:
     
     virtual void ccTouchCancelled(CATouch *pTouch, CAEvent *pEvent);
     
-    virtual CAResponder* nextResponder();
-    
     friend class CATabBarController;
     
     friend class CANavigationController;
@@ -90,23 +87,19 @@ public:
     
     friend class CAWindow;
     
-protected:
+    virtual void viewDidLoad() {};
     
-    virtual void viewDidLoad(){};
+    virtual void viewDidUnload() {};
     
-    virtual void viewDidUnload(){};
+    virtual void viewDidAppear() {};
     
-    virtual void viewDidAppear(){};
+    virtual void viewDidDisappear() {};
     
-    virtual void viewDidDisappear(){};
+    virtual void reshapeViewRectDidFinish() {};
     
-    virtual void reshapeViewRectDidFinish(){};
-    
-    virtual void keyBackClicked() {}
+    virtual void keyBackClicked() {};
     
     virtual void keyMenuClicked() {};
-    
-protected:
     
     virtual void addViewFromSuperview(CAView* node);
     
@@ -114,11 +107,13 @@ protected:
     
 private:
     
-    void getSuperViewRect(const CCRect& rect);
+    void getSuperViewRect(const DRect& rect);
     
     void viewOnEnterTransitionDidFinish();
     
     void viewOnExitTransitionDidStart();
+    
+    void parser();
     
 private:
     
@@ -127,6 +122,8 @@ private:
     bool m_bLifeLock;
     
     bool m_bKeypadEnabled;
+    
+    CAUIEditorParser* m_pParser;
 };
 
 class CC_DLL CANavigationController
@@ -140,8 +137,7 @@ public:
     
     virtual ~CANavigationController();
     
-    virtual bool initWithRootViewController(CAViewController* viewController,
-                                            CABarVerticalAlignment var = CABarVerticalAlignmentTop);
+    virtual bool initWithRootViewController(CAViewController* viewController);
     
 public:
     
@@ -151,8 +147,11 @@ public:
     
     CAViewController* popViewControllerAnimated(bool animated);
     
-    // sprhawk@163.com: 2015-03-08
     void popToRootViewControllerAnimated(bool animated);
+    
+    CAViewController* popFirstViewController();
+ 
+    CAViewController* popViewControllerAtIndex(int index);
     
     CAViewController* getViewControllerAtIndex(int index);
     
@@ -163,20 +162,26 @@ public:
     virtual void setNavigationBarHidden(bool hidden, bool animated);
     
     CC_SYNTHESIZE_IS_READONLY(bool, m_bNavigationBarHidden, NavigationBarHidden);
-    
-    CC_SYNTHESIZE_READONLY_PASS_BY_REF(CABarVerticalAlignment, m_eNavigationBarVerticalAlignment, NavigationBarVerticalAlignment);
-    
+  
     void updateItem(CAViewController* viewController);
     
     CC_PROPERTY_IS(bool, m_bTouchMoved, TouchMoved);
 
-    CC_PROPERTY(CAImage*, m_pNavigationBarBackGroundImage, NavigationBarBackGroundImage);
+    CC_PROPERTY(CAImage*, m_pNavigationBarBackgroundImage, NavigationBarBackgroundImage);
 
-    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sNavigationBarBackGroundColor, NavigationBarBackGroundColor);
+    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sNavigationBarBackgroundColor, NavigationBarBackgroundColor);
     
     CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sNavigationBarTitleColor, NavigationBarTitleColor);
 
     CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sNavigationBarButtonColor, NavigationBarButtonColor);
+    
+    virtual bool isReachBoundaryLeft();
+    
+    virtual bool isReachBoundaryRight() {return true;}
+    
+    virtual bool isReachBoundaryUp() {return true;}
+    
+    virtual bool isReachBoundaryDown() {return true;}
     
     virtual bool ccTouchBegan(CATouch *pTouch, CAEvent *pEvent);
     
@@ -185,7 +190,7 @@ public:
     virtual void ccTouchEnded(CATouch *pTouch, CAEvent *pEvent);
     
     virtual void ccTouchCancelled(CATouch *pTouch, CAEvent *pEvent);
-    
+
 protected:
     
     virtual void viewDidLoad();
@@ -212,35 +217,37 @@ protected:
     
     void popViewControllerFinish();
     
-    
     void popToRootViewControllerFinish();
     
     void homingViewControllerFinish();
     
     void navigationPopViewController(CANavigationBar* navigationBar, bool animated);
     
-    
-    void updateNavigationBarHidden(int index);
-    
+    void navigationBarHiddenAnimation(float delay, float now, float total);
+
     void update(float dt);
     
-    void scheduleUpdate();
+    DPoint getNavigationBarOpenPoint();
     
-    void unScheduleUpdate();
+    DPoint getNavigationBarTakeBackPoint();
+    
+    DPoint getNavigationBarNowPoint(CAViewController* viewController);
     
 protected:
 
-    CAVector<CAViewController*> m_pViewControllers;
+    float m_fProgress;
     
-    CAVector<CANavigationBar*> m_pNavigationBars;
+    CADeque<CAViewController*> m_pViewControllers;
     
-    CAVector<CAView*> m_pContainers;
+    CADeque<CANavigationBar*> m_pNavigationBars;
+    
+    CADeque<CAView*> m_pContainers;
 
-    CAVector<CAView*> m_pSecondContainers;
+    CADeque<CAView*> m_pSecondContainers;
     
     bool m_bPopViewController;
-    
-    CCSize m_tNavigationBarSize;
+
+    DSize m_tNavigationBarSize;
 };
 
 class CC_DLL CATabBarController
@@ -271,19 +278,19 @@ public:
     
     virtual void setTabBarHidden(bool hidden, bool animated);
     
-    CC_PROPERTY_IS(bool, m_bscrollEnabled, ScrollEnabled);
+    CC_PROPERTY_IS(bool, m_bScrollEnabled, ScrollEnabled);
     
     CC_SYNTHESIZE_IS_READONLY(bool, m_bTabBarHidden, TabBarHidden);
     
     CC_SYNTHESIZE_READONLY_PASS_BY_REF(CABarVerticalAlignment, m_eTabBarVerticalAlignment, TabBarVerticalAlignment);
     
-    CC_PROPERTY(CAImage*, m_pTabBarBackGroundImage, TabBarBackGroundImage);
+    CC_PROPERTY(CAImage*, m_pTabBarBackgroundImage, TabBarBackgroundImage);
     
-    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sTabBarBackGroundColor, TabBarBackGroundColor);
+    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sTabBarBackgroundColor, TabBarBackgroundColor);
     
-    CC_PROPERTY(CAImage*, m_pTabBarSelectedBackGroundImage, TabBarSelectedBackGroundImage);
+    CC_PROPERTY(CAImage*, m_pTabBarSelectedBackgroundImage, TabBarSelectedBackgroundImage);
     
-    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sTabBarSelectedBackGroundColor, TabBarSelectedBackGroundColor);
+    CC_PROPERTY_PASS_BY_REF(CAColor4B, m_sTabBarSelectedBackgroundColor, TabBarSelectedBackgroundColor);
     
     CC_PROPERTY(CAImage*, m_pTabBarSelectedIndicatorImage, TabBarSelectedIndicatorImage);
     
@@ -296,7 +303,7 @@ public:
     void updateItem(CAViewController* viewController);
     
     void showTabBarSelectedIndicator();
-    
+ 
 protected:
     
     virtual void viewDidLoad();
@@ -321,11 +328,17 @@ protected:
     
     void update(float dt);
     
-    void scheduleUpdate();
+    void tabBarHiddenAnimation(float delay, float now, float total);
     
-    void unScheduleUpdate();
+    DPoint getTabBarOpenPoint();
+    
+    DPoint getTabBarTakeBackPoint();
+    
+    DPoint getTabBarNowPoint();
     
 protected:
+    
+    float m_fProgress;
     
     bool m_bShowTabBarSelectedIndicator;
     
@@ -344,4 +357,4 @@ protected:
 
 NS_CC_END
 
-#endif /* defined(__CrossAppx__CAViewController__) */
+#endif /* defined(__CrossApp__CAViewController__) */

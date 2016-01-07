@@ -19,21 +19,6 @@ public:
     // keep compatible
     void    end();
     void    swapBuffers();
-    void    setIMEKeyboardState(bool bOpen);
-    
-    virtual void setIMEKeyboardNumber();
-    
-    virtual void setIMEKeyboardDefault();
-    
-    virtual void setIMEKeyboardAlphabet();
-    
-    virtual void setIMEKeyboardReturnSend();
-    
-    virtual void setIMEKeyboardReturnSearch();
-    
-    virtual void setIMEKeyboardReturnDone();
-
-    void setIMECursorPos(int pos);
     // static function
     /**
     @brief    get the shared main open gl window
