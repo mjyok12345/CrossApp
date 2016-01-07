@@ -111,7 +111,12 @@ inline int	iclamp(int i, int min, int max) {
 
 inline float	fclamp(float f, float xmin, float xmax) {
 	assert( xmin <= xmax );
-	return fmax_swf(xmin, fmin(f, xmax));
+#if defined(_MSC_VER) && (_MSC_VER<1800)
+#include <stdint.h>
+    return fmax_swf(xmin, fmin_swf(f, xmax));
+#else
+    return fmax_swf(xmin, fmin(f, xmax));
+#endif
 }
 
 inline float flerp(float a, float b, float f) { return (b - a) * f + a; }

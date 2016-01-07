@@ -177,6 +177,7 @@ xcopy /Y /Q "$(ProjectDir)..\support\sqlite3\win32\*.*" "$(OutDir)"</Command>
     <ClCompile Include="..\basics\CAResponder.cpp" />
     <ClCompile Include="..\basics\CAScheduler.cpp" />
     <ClCompile Include="..\basics\CAThread.cpp" />
+    <ClCompile Include="..\basics\CCString.cpp" />
     <ClCompile Include="..\cocoa\CACalendar.cpp" />
     <ClCompile Include="..\cocoa\CCNS.cpp" />
     <ClCompile Include="..\cocoa\CCSet.cpp" />
@@ -320,6 +321,7 @@ xcopy /Y /Q "$(ProjectDir)..\support\sqlite3\win32\*.*" "$(OutDir)"</Command>
     <ClInclude Include="..\basics\CASTLContainer.h" />
     <ClInclude Include="..\basics\CASyncQueue.h" />
     <ClInclude Include="..\basics\CAThread.h" />
+    <ClInclude Include="..\basics\CCString.h" />
     <ClInclude Include="..\ccConfig.h" />
     <ClInclude Include="..\ccMacros.h" />
     <ClInclude Include="..\ccTypeInfo.h" />

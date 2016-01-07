@@ -512,6 +512,9 @@
     <ClCompile Include="..\platform\win32\CATextView.cpp">
       <Filter>platform\win32</Filter>
     </ClCompile>
+    <ClCompile Include="..\basics\CCString.cpp">
+      <Filter>basics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cocoa\CCNS.h">
@@ -1028,6 +1031,9 @@
     </ClInclude>
     <ClInclude Include="..\platform\CATextView.h">
       <Filter>platform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\basics\CCString.h">
+      <Filter>basics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -31,7 +31,11 @@
 #endif
 
 #include <errno.h>
+#if defined(_MSC_VER) && (_MSC_VER<1800)
+#include <stdint.h>
+#else
 #include <inttypes.h>
+#endif
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>

@@ -38,6 +38,7 @@
 #include "basics/CAIndexPath.h"
 #include "basics/CAThread.h"
 #include "basics/CASyncQueue.h"
+#include "basics/CCString.h"
 
 //control
 #include "control/CABar.h"

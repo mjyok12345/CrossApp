@@ -22,7 +22,11 @@
 #ifndef AVUTIL_PIXDESC_H
 #define AVUTIL_PIXDESC_H
 
+#if defined(_MSC_VER) && (_MSC_VER<1800)
+#include <stdint.h>
+#else
 #include <inttypes.h>
+#endif
 
 #include "attributes.h"
 #include "pixfmt.h"

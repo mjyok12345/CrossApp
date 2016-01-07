@@ -20,6 +20,7 @@ basics/CAScheduler.cpp \
 basics/CAFPSImages.c \
 basics/CAIndexPath.cpp \
 basics/CAThread.cpp \
+basics/CCString.cpp \
 cocoa/CCNS.cpp \
 cocoa/CCSet.cpp \
 cocoa/CACalendar.cpp \
