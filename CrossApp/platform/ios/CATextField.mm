@@ -25,17 +25,18 @@
 
 -(void)regiestKeyBoardMessage;
 -(void)removeTextView;
+-(void)hide;
 @end
  
 @implementation IOSTextField
 {
-    
+
 }
 
 -(void)hide
 {
     CGRect rect = self.frame;
-    rect.origin = CGPointMake(5000, 5000);
+    rect.origin = CGPointMake(-5000, -5000);
     self.frame = rect;
 }
 
@@ -181,12 +182,14 @@ CATextField::CATextField()
 , m_iMarginRight(10)
 , m_iFontSize(40)
 , m_iMaxLenght(0)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
     
-    CGPoint point = CGPointMake(5000, 5000);
+    CGPoint point = CGPointMake(-5000, -5000);
     m_pTextField = [[IOSTextField alloc]initWithFrame:CGRectMake(point.x, point.y, 100, 40)];
     EAGLView * eaglview = [EAGLView sharedEGLView];
     [eaglview addSubview:textField_iOS];
@@ -283,6 +286,7 @@ void CATextField::hideNativeTextField()
 
 void CATextField::showNativeTextField()
 {
+    this->update(0);
     CAScheduler::schedule(schedule_selector(CATextField::update), this, 1/60.0f);
 }
 
@@ -365,10 +369,8 @@ void CATextField::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
 
         CGFloat scale = [[UIScreen mainScreen] scale];
         CGRect rect = textField_iOS.frame;
@@ -383,7 +385,7 @@ void CATextField::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect = textField_iOS.frame;
@@ -432,22 +434,22 @@ void CATextField::setKeyboardType(const KeyboardType& type)
     
     UIKeyboardType keyBoardType = UIKeyboardTypeDefault;
     switch (type) {
-        case KeyboardType::KeyboardTypeNumbersAndPunctuation:
+        case KeyboardType::NumbersAndPunctuation:
             keyBoardType = UIKeyboardTypeNumbersAndPunctuation;
             break;
-        case KeyboardType::KeyboardTypeURL:
+        case KeyboardType::URL:
             keyBoardType = UIKeyboardTypeURL;
             break;
-        case KeyboardType::KeyboardTypeNumberPad:
+        case KeyboardType::NumberPad:
             keyBoardType = UIKeyboardTypeNumberPad;
             break;
-        case KeyboardType::KeyboardTypePhonePad:
+        case KeyboardType::PhonePad:
             keyBoardType = UIKeyboardTypePhonePad;
             break;
-        case KeyboardType::KeyboardTypeNamePhonePad:
+        case KeyboardType::NamePhonePad:
             keyBoardType = UIKeyboardTypeNamePhonePad;
             break;
-        case KeyboardType::KeyboardTypeEmailAddress:
+        case KeyboardType::EmailAddress:
             keyBoardType = UIKeyboardTypeEmailAddress;
             break;
         default:
@@ -469,16 +471,16 @@ void CATextField::setReturnType(const ReturnType &var)
     
     UIReturnKeyType keyBoardReturnType = UIReturnKeyDone;
     switch (var) {
-        case ReturnType::ReturnTypeGo:
+        case Go:
             keyBoardReturnType = UIReturnKeyGo;
             break;
-        case ReturnType::ReturnTypeNext:
+        case Next:
             keyBoardReturnType = UIReturnKeyNext;
             break;
-        case ReturnType::ReturnTypeSearch:
+        case Search:
             keyBoardReturnType = UIReturnKeySearch;
             break;
-        case ReturnType::ReturnTypeSend:
+        case Send:
             keyBoardReturnType = UIReturnKeySend;
             break;
         default:
@@ -589,7 +591,7 @@ void CATextField::setMarginLeft(int var)
 {
     m_iMarginLeft = var;
     
-    DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
     
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGFloat x = s_dip_to_px(worldContentSize.width) / scale;
@@ -609,11 +611,11 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
         
         CGFloat scale = [[UIScreen mainScreen] scale];
         CGFloat x = s_dip_to_px(worldContentSize.width) / scale;
@@ -634,7 +636,7 @@ int CATextField::getMarginRight()
 
 void CATextField::setMarginImageLeft(const DSize& imgSize,const std::string& filePath)
 {
-    DSize worldContentSize = DSizeApplyAffineTransform(imgSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(imgSize);
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect;
     rect.origin.x = 0;
@@ -653,7 +655,7 @@ void CATextField::setMarginImageLeft(const DSize& imgSize,const std::string& fil
 
 void CATextField::setMarginImageRight(const DSize& imgSize,const std::string& filePath)
 {
-    DSize worldContentSize = DSizeApplyAffineTransform(imgSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(imgSize);
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect;
     rect.origin.x = 0;
@@ -677,7 +679,7 @@ void CATextField::setClearButtonMode(const ClearButtonMode &var)
     UITextFieldViewMode mode= UITextFieldViewModeNever;
     switch (var)
     {
-        case ClearButtonMode::ClearButtonWhileEditing:
+        case WhileEditing:
             mode = UITextFieldViewModeWhileEditing;
             textField_iOS.rightViewMode = UITextFieldViewModeNever;
             break;
@@ -702,13 +704,13 @@ void CATextField::setTextFieldAlign(const TextFieldAlign &var)
     
     switch (var)
     {
-        case CATextField::TextEditAlignCenter:
+        case Center:
             textField_iOS.textAlignment = NSTextAlignmentCenter;
             break;
-        case CATextField::TextEditAlignLeft:
+        case Left:
             textField_iOS.textAlignment = NSTextAlignmentLeft;
             break;
-        case CATextField::TextEditAlignRight:
+        case Right:
             textField_iOS.textAlignment = NSTextAlignmentRight;
             break;
         default:

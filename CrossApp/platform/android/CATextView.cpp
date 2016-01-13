@@ -15,7 +15,7 @@
 
 #define CLASS_TEXTVIEW "org/CrossApp/lib/CrossAppTextView"
 #define GET_CLASS "(I)Lorg/CrossApp/lib/CrossAppTextView;"
-#define CAColorToJavaColor(color) (color.a + color.g * 0x100 + color.r * 0x10000 + color.a * 0x1000000)
+#define CAColorToJavaColor(color) (color.b + color.g * 0x100 + color.r * 0x10000 + color.a * 0x1000000)
 
 
 NS_CC_BEGIN
@@ -167,6 +167,21 @@ void textViewSetTextColorJNI(int key, int color)
     }
 }
 
+void textViewSetReturnTypeJNI(int key, int type)
+{
+    JniMethodInfo jni;
+    if (JniHelper::getStaticMethodInfo(jni, CLASS_TEXTVIEW, "getTextView", GET_CLASS))
+    {
+        jobject obj = jni.env->CallStaticObjectMethod(jni.classID, jni.methodID, key);
+        
+        if (JniHelper::getMethodInfo(jni, CLASS_TEXTVIEW, "setKeyBoardReturnType", "(I)V"))
+        {
+            jni.env->CallVoidMethod(obj, jni.methodID, type);
+            jni.env->DeleteLocalRef(jni.classID);
+        }
+    }
+}
+
 void textViewSetTextViewAlignJNI(int key, int type)
 {
     JniMethodInfo jni;
@@ -181,23 +196,6 @@ void textViewSetTextViewAlignJNI(int key, int type)
         }
     }
 }
-
-
-//void setMaxLenghtJNI(int key, int type)
-//{
-//     JniMethodInfo jni;
-//     if (JniHelper::getStaticMethodInfo(jni, CLASS_TEXTVIEW, "getTextView", GET_CLASS))
-//     {
-//         jobject obj = jni.env->CallStaticObjectMethod(jni.classID, jni.methodID, key);
-//         
-//         if (JniHelper::getMethodInfo(jni, CLASS_TEXTVIEW, "setMaxLenght", "(I)V"))
-//         {
-//             jni.env->CallVoidMethod(obj, jni.methodID, type);
-//             jni.env->DeleteLocalRef(jni.classID);
-//         }
-//     }
-//}
-
 
 extern "C"
 {
@@ -229,9 +227,11 @@ extern "C"
         }
     }
     //return call back
-	JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextView_keyBoardReturnCallBack(JNIEnv *env, jclass cls, jint key, jint height)
+    JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextView_keyBoardReturnCallBack(JNIEnv *env, jclass cls, jint key, jint height)
     {
-		CATextView* textView = s_map[(int)key];
+        CATextView* textView = s_map[(int)key];
+        
+        textView->resignFirstResponder();
         
         if (textView->getDelegate())
         {
@@ -282,6 +282,8 @@ CATextView::CATextView()
 , m_pTextView(NULL)
 , m_iFontSize(40)
 , m_pDelegate(NULL)
+, m_eAlign(Left)
+, m_eReturnType(Default)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     s_map[m_u__ID] = this;
@@ -337,6 +339,11 @@ bool CATextView::becomeFirstResponder()
 
 	this->showNativeTextView();
 
+    if (CAViewAnimation::areBeginAnimationsWithID(m_s__StrID + "showImage"))
+    {
+        CAViewAnimation::removeAnimations(m_s__StrID + "showImage");
+    }
+    
     return result;
 }
 
@@ -425,10 +432,8 @@ void CATextView::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
         
         point.x = s_dip_to_px(point.x);
         point.y = s_dip_to_px(point.y);
@@ -441,7 +446,7 @@ void CATextView::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     DSize size;
     size.width = s_dip_to_px(worldContentSize.width);
@@ -525,6 +530,17 @@ void CATextView::setTextColor(const CAColor4B& var)
 const CAColor4B& CATextView::getTextColor()
 {
 	return m_sTextColor; 
+}
+
+void CATextView::setReturnType(const ReturnType& var)
+{
+    m_eReturnType = var;
+    textViewSetReturnTypeJNI(m_u__ID, (int)var);
+}
+
+const CATextView::ReturnType& CATextView::getReturnType()
+{
+    return m_eReturnType;
 }
 
 void CATextView::setBackgroundImage(CAImage* image)

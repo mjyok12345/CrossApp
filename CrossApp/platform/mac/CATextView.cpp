@@ -22,6 +22,8 @@ CATextView::CATextView()
 , m_pTextView(NULL)
 , m_iFontSize(40)
 , m_pDelegate(NULL)
+, m_eAlign(Left)
+, m_eReturnType(Default)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
@@ -147,10 +149,8 @@ void CATextView::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
         
         point.x = s_dip_to_px(point.x);
         point.y = s_dip_to_px(point.y);
@@ -162,7 +162,7 @@ void CATextView::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     DSize size;
     size.width = s_dip_to_px(worldContentSize.width);
@@ -240,6 +240,16 @@ void CATextView::setTextColor(const CAColor4B& var)
 const CAColor4B& CATextView::getTextColor()
 {
 	return m_sTextColor; 
+}
+
+void CATextView::setReturnType(const ReturnType& var)
+{
+    m_eReturnType = var;
+}
+
+const CATextView::ReturnType& CATextView::getReturnType()
+{
+    return m_eReturnType;
 }
 
 void CATextView::setBackgroundImage(CAImage* image)

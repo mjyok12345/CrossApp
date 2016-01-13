@@ -185,7 +185,9 @@ CATextField::CATextField()
 , m_iMarginRight(10)
 , m_iFontSize(40)
 , m_iMaxLenght(0)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
@@ -354,11 +356,10 @@ void CATextField::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
         point.y = CAApplication::getApplication()->getWinSize().height - point.y;
         point.y = point.y - m_obContentSize.height;
-//        CC_BREAK_IF(m_obLastPoint.equals(point));
 
         CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
         NSPoint origin;
@@ -373,7 +374,7 @@ void CATextField::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
     NSSize size;
@@ -531,7 +532,7 @@ void CATextField::setMarginLeft(int var)
 {
     m_iMarginLeft = var;
     
-    DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
     
     [textField_MAC setMarginLeft:worldContentSize.width];
     
@@ -547,11 +548,11 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
         
         [textField_MAC setMarginRight:worldContentSize.width];
         
@@ -604,7 +605,7 @@ void CATextField::setMarginImageRight(const DSize& imgSize,const std::string& fi
 
 void CATextField::setClearButtonMode(const ClearButtonMode &var)
 {
-    if (var == ClearButtonWhileEditing)
+    if (var == WhileEditing)
     {
         setMarginImageRight(DSize(m_obContentSize.height, m_obContentSize.height), "");
         
@@ -613,7 +614,7 @@ void CATextField::setClearButtonMode(const ClearButtonMode &var)
         rightMarginView->setImageColorForState(CAControlStateHighlighted, CAColor_blue);
         rightMarginView->addTarget(this, CAControl_selector(CATextField::clearBtnCallBack), CAControlEventTouchUpInSide);
 
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginRight, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(m_iMarginRight, 0));
         
         [textField_MAC setMarginRight:worldContentSize.width];
         
@@ -643,13 +644,13 @@ void CATextField::setTextFieldAlign(const TextFieldAlign &var)
     
     switch (var)
     {
-        case CATextField::TextEditAlignLeft:
+        case Left:
             [[textField_MAC cell] setAlignment:NSTextAlignmentLeft];
             break;
-        case CATextField::TextEditAlignCenter:
+        case Center:
             [[textField_MAC cell] setAlignment:NSTextAlignmentCenter];
             break;
-        case CATextField::TextEditAlignRight:
+        case Right:
             [[textField_MAC cell] setAlignment:NSTextAlignmentRight];
             break;
         default:

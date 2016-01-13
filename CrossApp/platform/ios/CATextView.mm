@@ -19,17 +19,27 @@
 -(void)addIosTextView;
 -(void)removeTextView;
 -(void)setContentSize:(CGSize) size;
+-(void)hide;
 @end
 
 @implementation IOSTextView
 {
     
 }
+
+-(void)hide
+{
+    CGRect rect = self.frame;
+    rect.origin = CGPointMake(-5000, -5000);
+    self.frame = rect;
+}
+
 -(void)addIosTextView
 {
     _iosTextView = [[[UITextView alloc]initWithFrame:[self bounds]] autorelease];
+    _iosTextView.backgroundColor = nil;
+    _iosTextView.delegate = self;
     [self addSubview:_iosTextView];
-    
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillWasShown:) name:UIKeyboardWillShowNotification object:nil];
     
@@ -45,30 +55,28 @@
 -(void)setContentSize:(CGSize)size
 {
     CGRect rect = self.frame;
-    rect.size.width = size.width;
-    rect.size.height = size.height;
+    rect.size = size;
     self.frame = rect;
     
-    _iosTextView.frame = self.bounds;
+    _iosTextView.frame = CGRectMake(0, 0, size.width, size.height);
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text
 {
-    
-    NSLog(@"shouldChangeTextInRange --%lu--%lu--%@",(unsigned long)range.location,(unsigned long)range.length,text);
-
-    
-    if ([text isEqualToString:@"\n"]){
-        //判断输入的字是否是回车，即按下return
-        //在这里做你响应return键的代码
-        if (_textView->getDelegate())
+    if (_textView->getReturnType() != CrossApp::CATextView::Default)
+    {
+        if ([text isEqualToString:@"\n"])
         {
-            _textView->getDelegate()->textViewShouldReturn(_textView);
+            //判断输入的字是否是回车，即按下return
+            //在这里做你响应return键的代码
+            if (_textView->getDelegate())
+            {
+                _textView->getDelegate()->textViewShouldReturn(_textView);
+            }
+            
+            return NO; //这里返回NO，就代表return键值失效，即页面上按下return，不会出现换行，如果为yes，则输入页面会换行
         }
-        
-        return NO; //这里返回NO，就代表return键值失效，即页面上按下return，不会出现换行，如果为yes，则输入页面会换行
     }
-    
     
     std::string insert = [text cStringUsingEncoding:NSUTF8StringEncoding];
     std::string cur = [[_iosTextView text] cStringUsingEncoding:NSUTF8StringEncoding];
@@ -124,10 +132,23 @@
 NS_CC_BEGIN
 //catextView
 CATextView::CATextView()
-:m_obLastPoint(DPoint(-0xffff, -0xffff))
-,m_pDelegate(NULL)
+: m_pBackgroundView(NULL)
+, m_pShowImageView(NULL)
+, m_pTextView(NULL)
+, m_pDelegate(NULL)
+, m_iFontSize(40)
+, m_eAlign(Left)
+, m_eReturnType(Default)
+, m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
+
+    m_pTextView = [[IOSTextView alloc]initWithFrame:CGRectMake(-5000, -5000, 500, 200)];
+    [textView_iOS addIosTextView];
+    EAGLView * eaglview = [EAGLView sharedEGLView];
+    [eaglview addSubview:textView_iOS];
+    textView_iOS.textView = this;
+    textView_iOS.backgroundColor = nil;
 }
 CATextView::~CATextView()
 {
@@ -150,18 +171,8 @@ CATextView* CATextView::createWithCenter(const CrossApp::DRect &rect){
 }
 bool CATextView::init()
 {
-    //curText
-    m_pTextView = [[IOSTextView alloc]initWithFrame:CGRectMake(200,200,100,40)];
-    [textView_iOS addIosTextView];
-    EAGLView * eaglview = [EAGLView sharedEGLView];
-    [eaglview addSubview:textView_iOS];
-    textView_iOS.textView = this;
-    textView_iOS.backgroundColor = 0;
-    textView_iOS1.backgroundColor = 0;
-    textView_iOS1.delegate = textView_iOS;
-
     //bg
-    CAImage* image = CAImage::create("source_material/textView_bg.png");
+    CAImage* image = CAImage::create("source_material/textField_bg.png");
     DRect capInsets = DRect(image->getPixelsWide()/2 ,image->getPixelsHigh()/2 , 1, 1);
     m_pBackgroundView = CAScale9ImageView::createWithFrame(DRectZero);
     m_pBackgroundView->setImage(image);
@@ -194,11 +205,12 @@ bool CATextView::resignFirstResponder()
     
     bool result = CAView::resignFirstResponder();
     
+    this->showImage();
     if ([textView_iOS1 isFirstResponder])
     {
         [textView_iOS1 resignFirstResponder];
     }
-    this->showImage();
+    this->delayShowImage();
     
     this->showTextView();
     
@@ -230,9 +242,7 @@ bool CATextView::becomeFirstResponder()
 const DRect CATextView::convertRect(const CrossApp::DRect &rect)
 {
     DRect cnvRect;
-    
-    
-    
+ 
     return cnvRect;
 }
 void CATextView::update(float t)
@@ -241,10 +251,7 @@ void CATextView::update(float t)
     {
         //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
-        
-        
+
         CGFloat scale = [[UIScreen mainScreen] scale];
         CGRect rect = textView_iOS.frame;
         rect.origin.x = s_dip_to_px(point.x) / scale;
@@ -269,6 +276,7 @@ void CATextView::showImage()
 {
     static float scale = [UIScreen mainScreen].scale;
     UIGraphicsBeginImageContextWithOptions(textView_iOS.bounds.size, NO, scale);
+    NSLog(@"W--%f H--%f", textView_iOS.bounds.size.width , textView_iOS.bounds.size.height);
     CGContextRef context = UIGraphicsGetCurrentContext();
     [textView_iOS.layer renderInContext:context];
     UIImage *image_iOS = UIGraphicsGetImageFromCurrentImageContext();
@@ -285,6 +293,7 @@ void CATextView::showImage()
     
     m_pShowImageView->setImage(image);
     m_pShowImageView->setFrame(this->getBounds());
+    this->updateDraw();
 }
 void CATextView::showTextView()
 {
@@ -296,22 +305,19 @@ void CATextView::hideTextView()
 }
 void CATextView::showNativeTextView()
 {
+    this->update(0);
     CAScheduler::schedule(schedule_selector(CATextView::update), this, 1/60.0f);
 }
 void CATextView::hideNativeTextView()
 {
     CAScheduler::unschedule(schedule_selector(CATextView::update), this);
-    CGRect rect = textView_iOS.frame;
-    rect.origin.x = -10000;
-    rect.origin.y = -10000;
-    textView_iOS.frame = rect;
-    m_obLastPoint = DPoint(-10000, -10000);
+    [textView_iOS performSelector:@selector(hide) withObject:nil afterDelay:1/60.0f];
 }
 void CATextView::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
 
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect = textView_iOS.frame;
@@ -393,6 +399,16 @@ const int& CATextView::getTextFontSize()
     return m_iFontSize;
 }
 
+void CATextView::setReturnType(const ReturnType& var)
+{
+    m_eReturnType = var;
+}
+
+const CATextView::ReturnType& CATextView::getReturnType()
+{
+    return m_eReturnType;
+}
+
 void CATextView::setBackgroundImage(CAImage* image)
 {
     if (image)
@@ -409,7 +425,6 @@ void CATextView::setTextViewAlign(const TextViewAlign &var)
     m_eAlign = var;
     
     textView_iOS1.textAlignment = (NSTextAlignment)var;
-    
     
     delayShowImage();
 }

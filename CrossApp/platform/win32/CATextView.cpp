@@ -168,13 +168,6 @@ void CATextView::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
-    
-    DSize size;
-    size.width = s_dip_to_px(worldContentSize.width);
-    size.height =  s_dip_to_px(worldContentSize.height);
-
-    
 	m_pBackgroundView->setFrame(this->getBounds());
     m_pShowImageView->setFrame(this->getBounds());
 }
@@ -248,6 +241,15 @@ const CAColor4B& CATextView::getTextColor()
 	return m_sTextColor; 
 }
 
+void CATextView::setReturnType(const ReturnType& var)
+{
+    m_eReturnType = var;
+}
+
+const CATextView::ReturnType& CATextView::getReturnType()
+{
+    return m_eReturnType;
+}
 
 void CATextView::setBackgroundImage(CAImage* image)
 {
