@@ -61,11 +61,11 @@
     _iosTextView.frame = CGRectMake(0, 0, size.width, size.height);
 }
 
-- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text
+- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)string
 {
     if (_textView->getReturnType() != CrossApp::CATextView::Default)
     {
-        if ([text isEqualToString:@"\n"])
+        if ([string isEqualToString:@"\n"])
         {
             //判断输入的字是否是回车，即按下return
             //在这里做你响应return键的代码
@@ -78,23 +78,13 @@
         }
     }
     
-    std::string insert = [text cStringUsingEncoding:NSUTF8StringEncoding];
-    std::string cur = [[_iosTextView text] cStringUsingEncoding:NSUTF8StringEncoding];
-    
-    int dele    = 0;
-    int inse  = 0;
-    
-    if (range.length>0) {
-        dele = (int)range.length;
-        
-    }else{
-        inse = (int)text.length;
-    }
-    
-    
     if (_textView->getDelegate())
     {
-       _textView->getDelegate()->textViewAfterTextChanged(_textView, cur.c_str(), insert.c_str(), (int)range.location, dele, inse);
+        std::string text = [string UTF8String];
+        return _textView->getDelegate()->textViewShouldChangeCharacters(_textView,
+                                                                          (unsigned int)range.location,
+                                                                          (unsigned int)range.length,
+                                                                          text);
     }
     
     
@@ -147,8 +137,11 @@ CATextView::CATextView()
     [textView_iOS addIosTextView];
     EAGLView * eaglview = [EAGLView sharedEGLView];
     [eaglview addSubview:textView_iOS];
+    [textView_iOS release];
     textView_iOS.textView = this;
-    textView_iOS.backgroundColor = nil;
+    textView_iOS1.backgroundColor = nil;
+    CGFloat scale = [[UIScreen mainScreen] scale];
+    textView_iOS1.font = [UIFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
 }
 CATextView::~CATextView()
 {
@@ -228,10 +221,7 @@ bool CATextView::becomeFirstResponder()
     
     bool result = CAView::becomeFirstResponder();
     
-    CAViewAnimation::beginAnimations(m_s__StrID + "hideTextView", NULL);
-    CAViewAnimation::setAnimationDuration(0);
-    CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CATextView::hideTextView));
-    CAViewAnimation::commitAnimations();
+    this->hideTextView();
     
     [textView_iOS1 becomeFirstResponder];
     

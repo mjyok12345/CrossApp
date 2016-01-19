@@ -72,16 +72,12 @@ import android.widget.TextView.OnEditorActionListener;
 	private OnEditorActionListener onEditorActionListener = null;
 	private ViewTreeObserver.OnGlobalLayoutListener onGlobalLayoutListener = null;
 	
-	//代理回调需要
+	//浠ｇ�����璋����瑕�
 	private boolean isSetText = false;
 	private String  beforeTextString = "";
-	private String  changedTextString = "";
-	private String  currTextString = "";
-	private int _arg1 = 0;
-	private int _arg2 = 0;
-	private int _arg3 = 0;
+	private int selection = 0;
 	
-	//是否弹出键盘
+	//������寮瑰�洪�����
 	private boolean isShowKey = false;
 	
 	
@@ -131,8 +127,8 @@ import android.widget.TextView.OnEditorActionListener;
 	
 	//keyBoard return call back
 	private static native void keyBoardReturnCallBack(int key);
-	private static native void textChange(int key,String before,String change,int arg0,int arg1,int arg2);
-	private static native void text(int key, String text);
+	private static native boolean textChange(int key,String before,String change,int arg0,int arg1);
+	private static native void text(int key, byte[] text, int lenght);
     public void init(int key)
     {
     	
@@ -157,59 +153,68 @@ import android.widget.TextView.OnEditorActionListener;
     private static native void resignFirstResponder(int key);
     public int getKeyBoardHeight()
     {
-		layout.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+    	onGlobalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() 
+    	{
 
-        @Override
-        public void onGlobalLayout() 
-        {
-        	
-            // TODO Auto-generated method stub
-            Rect r = new Rect();
-            layout.getWindowVisibleDisplayFrame(r);
+            @Override
+            public void onGlobalLayout() 
+            {
+            	
+                // TODO Auto-generated method stub
+                Rect r = new Rect();
+                layout.getWindowVisibleDisplayFrame(r);
 
-            int screenHeight = layout.getRootView().getHeight();
-            
-            keyboardheightTemp = screenHeight- r.bottom;
-            if (keyboardheightTemp!=keyboardheight) {
-            	context.runOnUiThread(new Runnable() 
-            	{
-        			
-        			@Override
-        			public void run() 
-        			{
-        				// TODO Auto-generated method stub
-        				if (keyboardheightTemp < 1 && isShowKey == true)
-        				{
-							//hide
-        					isShowKey = false;
-        					context.runOnGLThread(new Runnable() 
+                int screenHeight = layout.getRootView().getHeight();
+                
+                keyboardheightTemp = screenHeight- r.bottom;
+                if (keyboardheightTemp!=keyboardheight) {
+                	context.runOnUiThread(new Runnable() 
+                	{
+            			
+            			@Override
+            			public void run() 
+            			{
+            				// TODO Auto-generated method stub
+            				if (keyboardheightTemp < 1 && isShowKey == true)
+            				{
+    							//hide
+            					isShowKey = false;
+            					context.runOnGLThread(new Runnable() 
+                            	{
+                                    @Override
+                                    public void run()
+                                    {
+                                    	resignFirstResponder(mykey);
+                                    }
+                                });
+            					
+    						}
+//            				if (keyboardheight<1) {
+//    							//show
+//            					Log.d("android", "show board");
+//    						}
+//            				Log.d("android", "call c++");
+            				
+            				//keyBoardReturn
+            				context.runOnGLThread(new Runnable() 
                         	{
                                 @Override
                                 public void run()
                                 {
-                                	resignFirstResponder(mykey);
+                                	keyBoardHeightReturn(mykey, keyboardheightTemp);
                                 }
                             });
-        					
-						}
-//        				if (keyboardheight<1) {
-//							//show
-//        					Log.d("android", "show board");
-//						}
-//        				Log.d("android", "call c++");
-        				
-        				//keyBoardReturn
-        				keyBoardHeightReturn(mykey, keyboardheightTemp);
-        			}
-        		});
-			}
-            keyboardheight = keyboardheightTemp;
-        }
-    });
+            			}
+            		});
+    			}
+                keyboardheight = keyboardheightTemp;
+            }
+        };
+    	layout.getViewTreeObserver().addOnGlobalLayoutListener(onGlobalLayoutListener);
 
-	return keyboardheight;
+		return keyboardheight;
 
-}
+    }
 
     public void setFontSize(final int size) 
     {
@@ -236,6 +241,7 @@ import android.widget.TextView.OnEditorActionListener;
 				isSetText = true;
 				textViewText = text;
 				textView.setText(text);
+				isSetText = false;
 			}
 		});
 	}
@@ -421,7 +427,6 @@ import android.widget.TextView.OnEditorActionListener;
             @Override
             public void run()
             {           	
-            	textView.setSelection(0);
             	InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);  
             	imm.hideSoftInputFromWindow(textView.getWindowToken(), 0);
         		textView.clearFocus();
@@ -529,51 +534,68 @@ import android.widget.TextView.OnEditorActionListener;
 
     	textWatcher = new TextWatcher()
     	{
-			@Override
+    		@Override
 			public void onTextChanged(CharSequence arg0, int arg1, int arg2, int arg3)
-			{//起始位置， 删除长度，增加长度
+			{
+				//起始位置， 删除长度，增加长度
 				// TODO Auto-generated method stub
 				if (isSetText)
 				{
-					isSetText = false;
 					return;
 				}
-				
+
 				String string = arg0.toString();
-				if (arg2>arg3) 
+				
+				String  changedText = "";
+				if (arg3 > 0) 
 				{
-					changedTextString = beforeTextString.substring(arg1, arg1+arg2);
+					//只是添加
+					changedText = string.substring(arg1, arg1 + arg3);
+				}
+				else 
+				{
+					//只是删除
+					changedText = "";
+				}
+
+				if (!textChange(mykey, beforeTextString, changedText, arg1, arg2))
+				{
+					isSetText = true;
+					textView.setText(beforeTextString);
+					textView.setSelection(selection);
+					isSetText = false;
 				}
 				else
 				{
-					changedTextString = string.substring(arg1, arg1+arg3);
+					isSetText = true;
+					textView.setText(string);
+					textView.setSelection(selection - arg2 + arg3);
+//					context.runOnGLThread(new Runnable() 
+//	            	{
+//	                    @Override
+//	                    public void run()
+//	                    {
+//	                    	ByteBuffer textBuffer = ByteBuffer.wrap(textView.getText().toString().getBytes());
+//	    					text(mykey, textBuffer.array(), textBuffer.array().length);
+//	                    }
+//	                });
+					ByteBuffer textBuffer = ByteBuffer.wrap(textView.getText().toString().getBytes());
+					text(mykey, textBuffer.array(), textBuffer.array().length);
+					isSetText = false;
 				}
-				
-				_arg1 = arg1;
-				_arg2 = arg2;
-				_arg3 = arg3;
-				
-				context.runOnGLThread(new Runnable()
-				{
-					
-					@Override
-					public void run()
-					{
-						text(mykey, textView.getText().toString());
-						textChange(mykey, beforeTextString, changedTextString, _arg1, _arg2, _arg3);
-					}
-					
-				});
-    	
- 
 			}
 			
 			@Override
 			public void beforeTextChanged(CharSequence arg0, int arg1, int arg2,
 					int arg3)
 			{
+				if (isSetText)
+				{
+					return;
+				}
 				// TODO Auto-generated method stub
 				beforeTextString = arg0.toString();
+				selection = textView.getSelectionStart();
 			}
 			
 			@Override

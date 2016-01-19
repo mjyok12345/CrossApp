@@ -48,6 +48,8 @@ public:
 
 	CC_PROPERTY(bool, m_bUnderLine, UnderLine);
 
+	CC_PROPERTY(bool, m_bDeleteLine, DeleteLine);
+
 	CC_PROPERTY(bool, m_bItalics, Italics);
 
 	CC_PROPERTY(int, m_iLineSpacing, LineSpacing);
@@ -66,7 +68,7 @@ public:
     
     CC_SYNTHESIZE_READONLY_PASS_BY_REF(DSize, m_cLabelSize, LabelSize);
 
-    virtual void visit();
+    virtual void visitEve();
     
     void sizeToFit();
     
@@ -94,11 +96,11 @@ protected:
 
 	void copySelectText();
     
-    bool m_bUpdateImage;
-    
     float pTextHeight;
     
     bool m_bFitFlag;
+    
+    bool m_bUpdateImage;
     
     CAColor4B m_cFontColor;
 };

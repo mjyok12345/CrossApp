@@ -27,16 +27,17 @@ CALabel::CALabel()
 ,m_nDimensions(DSizeZero)
 ,m_nfontSize(24)
 ,m_cLabelSize(DSizeZero)
-,m_bUpdateImage(false)
 ,pTextHeight(0)
 ,m_bFitFlag(false)
+,m_bUpdateImage(false)
 ,m_iLineSpacing(0)
 ,m_bWordWrap(false)
 ,m_bBold(false)
 ,m_bItalics(false)
 ,m_bUnderLine(false)
+,m_bDeleteLine(false)
 ,m_bEnableCopy(false)
-, m_cFontColor(CAColor_black)
+,m_cFontColor(CAColor_black)
 {
     m_obContentSize = DSizeZero;
 }
@@ -86,11 +87,6 @@ CALabel* CALabel::createWithCenter(const DRect &rect)
 void CALabel::onEnterTransitionDidFinish()
 {
     CAView::onEnterTransitionDidFinish();
-    if (m_bUpdateImage)
-    {
-        m_bUpdateImage = false;
-        this->updateImage();
-    }
 }
 
 bool CALabel::initWithFrame(const DRect& rect)
@@ -122,7 +118,7 @@ void CALabel::updateImage()
 	int fontHeight = CAImage::getFontHeight(m_nfontName.c_str(), m_nfontSize);
 	int defaultLineSpace = fontHeight / 4;
  
-    unsigned int linenumber = (int)this->getBounds().size.height / fontHeight;
+    unsigned int linenumber = (int)m_obContentSize.height / fontHeight;
 
     DSize size = DSizeZero;
     if (m_bFitFlag)
@@ -132,7 +128,7 @@ void CALabel::updateImage()
         {
             if (m_nNumberOfLine > 1)
             {
-				size = DSize(this->getBounds().size.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * m_nNumberOfLine);
+				size = DSize(m_obContentSize.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * m_nNumberOfLine);
             }
             else if (m_nNumberOfLine == 1)
             {
@@ -140,7 +136,7 @@ void CALabel::updateImage()
             }
             else
             {
-                size.width = this->getBounds().size.width;
+                size.width = m_obContentSize.width;
 				size.height = CAImage::getStringHeight(m_nfontName.c_str(), m_nfontSize, m_nText, size.width, m_iLineSpacing, m_bWordWrap);
             }
         }
@@ -154,17 +150,17 @@ void CALabel::updateImage()
     {
         if (linenumber == 0)
 		{
-			size = this->getBounds().size;
+			size = m_obContentSize;
 		}
 		else
 		{
 			if (m_nNumberOfLine > 0)
 			{
-				size = DSize(this->getBounds().size.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * MIN(m_nNumberOfLine, linenumber));
+				size = DSize(m_obContentSize.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * MIN(m_nNumberOfLine, linenumber));
 			}
 			else
 			{
-				size = DSize(this->getBounds().size.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * linenumber);
+				size = DSize(m_obContentSize.width, (defaultLineSpace + m_iLineSpacing + fontHeight) * linenumber);
 			}
 		}
     }
@@ -182,17 +178,18 @@ void CALabel::updateImage()
 											   m_iLineSpacing, 
 											   m_bBold, 
 											   m_bItalics,
-											   m_bUnderLine);
+											   m_bUnderLine,
+											   m_bDeleteLine);
 
     this->setImage(image);
 	CC_RETURN_IF(image == NULL);
     m_cLabelSize = size;
-    
+
     DRect rect = DRectZero;
-    rect.size.width = this->getBounds().size.width;
+    rect.size.width = m_obContentSize.width;
     rect.size.height = size.height;
     
-    float width = m_bFitFlag ? image->getContentSize().width : MIN(this->getBounds().size.width, image->getContentSize().width);
+    float width = m_bFitFlag ? image->getContentSize().width : MIN(m_obContentSize.width, image->getContentSize().width);
     
     rect.size.width = width;
 
@@ -203,11 +200,11 @@ void CALabel::updateImage()
             break;
             
         case CAVerticalTextAlignmentCenter:
-            pTextHeight = (this->getBounds().size.height - rect.size.height) / 2;
+            pTextHeight = (m_obContentSize.height - rect.size.height) / 2;
             break;
             
         case CAVerticalTextAlignmentBottom:
-            pTextHeight = this->getBounds().size.height - rect.size.height;
+            pTextHeight = m_obContentSize.height - rect.size.height;
             break;
             
         default:
@@ -400,6 +397,18 @@ bool CALabel::getUnderLine()
 	return m_bUnderLine;
 }
 
+void CALabel::setDeleteLine(bool var)
+{
+	m_bDeleteLine = var;
+	this->updateImageDraw();
+}
+
+bool CALabel::getDeleteLine()
+{
+	return m_bDeleteLine;
+}
+
+
 void CALabel::setItalics(bool var)
 {
 	m_bItalics = var;
@@ -462,26 +471,18 @@ const CAColor4B& CALabel::getColor(void)
 void CALabel::setColor(const CAColor4B& color)
 {
 	m_cFontColor = color;
-	if (!m_nText.empty())
-	{
-		updateImage();
-		CAView::setColor(CAColor_white);
-	}
-	else
-	{
-		CAView::setColor(color);
-	}
-	setAlpha(color.a / 255.0f);
+    updateImage();
+    CAView::setColor(ccc4(255, 255, 255, color.a));
 }
 
-void CALabel::visit()
+void CALabel::visitEve()
 {
     if (m_bUpdateImage)
     {
         m_bUpdateImage = false;
         this->updateImage();
     }
-    CAView::visit();
+    CAView::visitEve();
 }
 
 void CALabel::applyStyle(const string& sStyleName)

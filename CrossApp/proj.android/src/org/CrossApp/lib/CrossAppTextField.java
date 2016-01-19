@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import android.R.bool;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -65,11 +67,8 @@ import android.widget.TextView.OnEditorActionListener;
 	
 	private boolean isSetText = false;
 	private String  beforeTextString = "";
-	private String  changedTextString = "";
-	private String  currTextString = "";
-	private int _arg1 = 0;
-	private int _arg2 = 0;
-	private int _arg3 = 0;
+	private int selection = 0;
+
 	//是否弹出键盘
 	private boolean isShowKey = false;
 	
@@ -115,8 +114,8 @@ import android.widget.TextView.OnEditorActionListener;
 	
 	//keyBoard return call back
 	private static native void keyBoardReturnCallBack(int key);
-	private static native void textChange(int key,String before,String change,int arg0,int arg1,int arg2);
-	private static native void text(int key, String text);
+	private static native boolean textChange(int key,String before,String change,int arg0,int arg1);
+	private static native void text(int key, byte[] text, int lenght);
     public void init(int key)
     {
     	mykey = key;
@@ -182,7 +181,14 @@ import android.widget.TextView.OnEditorActionListener;
 //            				Log.d("android", "call c++");
             				
             				//keyBoardReturn
-            				keyBoardHeightReturn(mykey, keyboardheightTemp);
+            				context.runOnGLThread(new Runnable() 
+                        	{
+                                @Override
+                                public void run()
+                                {
+                                	keyBoardHeightReturn(mykey, keyboardheightTemp);
+                                }
+                            });
             			}
             		});
     			}
@@ -234,6 +240,7 @@ import android.widget.TextView.OnEditorActionListener;
 				isSetText = true;
 				textFieldText = text;
 				textField.setText(text);
+				isSetText = false;
 			}
 		});
 	}
@@ -753,54 +760,75 @@ import android.widget.TextView.OnEditorActionListener;
     	{
 			@Override
 			public void onTextChanged(CharSequence arg0, int arg1, int arg2, int arg3)
-			{//起始位置， 删除长度，增加长度
+			{
+				//起始位置， 删除长度，增加长度
 				// TODO Auto-generated method stub
 				if (isSetText)
 				{
-					isSetText = false;
 					return;
 				}
-				
+
 				String string = arg0.toString();
-				if (arg2>arg3) 
+				
+				String  changedText = "";
+				if (arg3 > 0) 
 				{
-					changedTextString = beforeTextString.substring(arg1, arg1+arg2);
+					//只是添加
+					changedText = string.substring(arg1, arg1 + arg3);
+				}
+				else 
+				{
+					//只是删除
+					changedText = "";
+				}
+
+				if (!textChange(mykey, beforeTextString, changedText, arg1, arg2))
+				{
+					isSetText = true;
+					textField.setText(beforeTextString);
+					textField.setSelection(selection);
+					isSetText = false;
 				}
 				else
 				{
-					changedTextString = string.substring(arg1, arg1+arg3);
+					isSetText = true;
+					textField.setText(string);
+					textField.setSelection(selection - arg2 + arg3);
+//					context.runOnGLThread(new Runnable() 
+//	            	{
+//	                    @Override
+//	                    public void run()
+//	                    {
+//	                    	ByteBuffer textBuffer = ByteBuffer.wrap(textField.getText().toString().getBytes());
+//	    					text(mykey, textBuffer.array(), textBuffer.array().length);
+//	                    }
+//	                });
+					ByteBuffer textBuffer = ByteBuffer.wrap(textField.getText().toString().getBytes());
+					text(mykey, textBuffer.array(), textBuffer.array().length);
+					isSetText = false;
 				}
-				
-				_arg1 = arg1;
-				_arg2 = arg2;
-				_arg3 = arg3;
-				
-				context.runOnGLThread(new Runnable()
-				{
-					
-					@Override
-					public void run()
-					{
-						text(mykey, textField.getText().toString());
-						textChange(mykey, beforeTextString, changedTextString, _arg1, _arg2, _arg3);
-					}
-					
-				});
-    	
- 
 			}
 			
 			@Override
 			public void beforeTextChanged(CharSequence arg0, int arg1, int arg2,
 					int arg3)
 			{
+				if (isSetText)
+				{
+					return;
+				}
 				// TODO Auto-generated method stub
 				beforeTextString = arg0.toString();
+				selection = textField.getSelectionStart();  
 			}
 			
 			@Override
 			public void afterTextChanged(Editable arg0)
 			{
+				if (isSetText)
+				{
+					return;
+				}
 				// TODO Auto-generated method stub
 			}
 		};

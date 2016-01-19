@@ -33,7 +33,7 @@ class CATouch;
 class CARGBAProtocol;
 class CCComponent;
 class CAImage;
-class CAViewDelegate;
+class CAContentContainer;
 class CABatchView;
 class CAViewAnimation;
 struct transformValues_;
@@ -221,6 +221,8 @@ public:
 
     virtual void visit(void);
 
+    virtual void visitEve(void);
+    
     virtual CAResponder* nextResponder();
     
     virtual CAView* copy();
@@ -328,10 +330,11 @@ public:
     virtual void ccTouchCancelled(CATouch *pTouch, CAEvent *pEvent);
     
 protected:
+    
     void detachSubview(CAView *subview);
-
+    
     void updateDraw();
-
+    
     void updateColor(void);
     
     virtual void setPoint(const DPoint &point);
@@ -358,7 +361,7 @@ protected:
     
 protected:
 
-    CC_SYNTHESIZE(CAViewDelegate*, m_pViewDelegate, ViewDelegate);
+    CC_SYNTHESIZE(CAContentContainer*, m_pContentContainer, ContentContainer);
     
     CC_SYNTHESIZE_IS_READONLY(bool, m_bFrame, Frame);
     
@@ -447,11 +450,11 @@ protected:
     friend class CAViewAnimation;
 };
 
-class CC_DLL CAViewDelegate
+class CC_DLL CAContentContainer: public CAResponder
 {
 public:
     
-    virtual ~CAViewDelegate(){};
+    virtual ~CAContentContainer(){};
     
     virtual void getSuperViewRect(const DRect& rect) = 0;
     

@@ -42,8 +42,14 @@ public:
     //
     virtual void keyBoardHeight(CATextView* sender, int height){}
     
-    //arg0
-    virtual void textViewAfterTextChanged(CATextView*sender,const char* beforeText,const char* changeText,int arg0,int arg1,int arg2){}
+    //Warning!!! Warning!!! Warning!!!  This method is not on the OpenGL thread.
+    virtual bool textViewShouldChangeCharacters(CATextView* sender,
+                                                 unsigned int location,
+                                                 unsigned int lenght,
+                                                 const std::string& changedText)
+    {
+        return true;
+    }
 };
 
 
@@ -132,10 +138,15 @@ private:
     virtual void ccTouchEnded(CATouch *pTouch, CAEvent *pEvent);
     
     virtual void ccTouchCancelled(CATouch *pTouch, CAEvent *pEvent);
+    
 protected:
+    
     CAScale9ImageView*   m_pBackgroundView;
+    
     CAImageView*         m_pShowImageView;
+    
     void*                m_pTextView;
+    
     DPoint               m_obLastPoint;
 };
 

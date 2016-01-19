@@ -17,11 +17,10 @@
 
 @interface IOSTextField: UITextField<UITextFieldDelegate>
 {
-    BOOL _isShouldEdit;
+
 }
 
 @property(nonatomic,assign) CrossApp::CATextField* textField;
-@property(nonatomic,retain) NSString* beforeText;
 
 -(void)regiestKeyBoardMessage;
 -(void)removeTextView;
@@ -31,6 +30,20 @@
 @implementation IOSTextField
 {
 
+}
+
+-(id)initWithFrame:(CGRect)frame
+{
+    if ([super initWithFrame:frame])
+    {
+        return self;
+    }
+    return nil;
+}
+
+-(void)dealloc
+{
+    [super dealloc];
 }
 
 -(void)hide
@@ -45,8 +58,6 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillWasShown:) name:UIKeyboardWillShowNotification object:nil];
 
     [[NSNotificationCenter defaultCenter]  addObserver:self selector:@selector(keyboardWasHidden:) name:UIKeyboardWillHideNotification object:nil];
-    
-    [self addTarget:self action:@selector(textFieldEditChanged:) forControlEvents:UIControlEventEditingChanged];
 }
 
 -(void)removeTextView
@@ -55,46 +66,6 @@
     [self removeFromSuperview];
 }
 
-- (void)textFieldEditChanged:(UITextField *)textField
-{
-    if (_isShouldEdit)
-    {
-        _isShouldEdit = NO;
-        std::string str = [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding];
-        self.beforeText = [textField text];
-        return;
-    }
-    
-    NSString *stra = @"";
-    NSString *strb = @"";
-    int location = 0;
-    for (int i =0,j =0; i<[self.beforeText length]; i++)
-    {
-        location = i;
-        CC_BREAK_IF(i+1>[textField text].length);
-        
-        strb = [self.beforeText substringWithRange:NSMakeRange(i, 1)];
-        stra = [[textField text] substringWithRange:NSMakeRange(j, 1)];
-        
-        CC_BREAK_IF(![strb isEqualToString:stra]);
-        j++;
-    }
-
-    std::string str = [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding];
-    self.beforeText = [textField text];
-
-    if (_textField->getDelegate())
-    {
-        _textField->getDelegate()->textFieldAfterTextChanged(_textField,
-                                                             str.c_str(),
-                                                             "",
-                                                             location,
-                                                             1,
-                                                             0);
-    }
-    
-    _isShouldEdit = NO;
-}
 
 - (void) keyboardWillWasShown:(NSNotification *) notif
 {
@@ -135,15 +106,14 @@
 
 - (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
-    _isShouldEdit = YES;
     
     if (_textField->getMaxLenght() > 0)
     {
-        NSUInteger oldLength = [[textField text] length];
-        NSUInteger replacementLength = [string length];
-        NSUInteger rangeLength = range.length;
+        NSUInteger oldLenght = [[textField text] length];
+        NSUInteger addLenght = [string length];
+        NSUInteger delLenght = range.length;
         
-        NSUInteger newLength = oldLength - rangeLength + replacementLength;
+        NSUInteger newLength = oldLenght + addLenght - delLenght;
         
         if (newLength > _textField->getMaxLenght())
         {
@@ -151,13 +121,13 @@
         }
     }
     
-    std::string str = self.beforeText != nil ? [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding] : "";
-    std::string insert = [string cStringUsingEncoding:NSUTF8StringEncoding];
-    self.beforeText = [textField text];
-    
     if (_textField->getDelegate())
     {
-        _textField->getDelegate()->textFieldAfterTextChanged(_textField, str.c_str(), insert.c_str(), (int)range.location, 0, (int)string.length);
+        std::string text = [string UTF8String];
+        return _textField->getDelegate()->textFieldShouldChangeCharacters(_textField,
+                                                                          (unsigned int)range.location,
+                                                                          (unsigned int)range.length,
+                                                                          text);
     }
     
     
@@ -193,13 +163,14 @@ CATextField::CATextField()
     m_pTextField = [[IOSTextField alloc]initWithFrame:CGRectMake(point.x, point.y, 100, 40)];
     EAGLView * eaglview = [EAGLView sharedEGLView];
     [eaglview addSubview:textField_iOS];
+    [textField_iOS release];
     textField_iOS.textField = this;
     textField_iOS.delegate = textField_iOS;
     textField_iOS.regiestKeyBoardMessage;
     textField_iOS.keyboardType = UIKeyboardTypeDefault;
     textField_iOS.returnKeyType = UIReturnKeyDone;
     textField_iOS.borderStyle = UITextBorderStyleNone;
-    textField_iOS.placeholder = @"placeholder";
+    textField_iOS.placeholder = @"";
     CGFloat scale = [[UIScreen mainScreen] scale];
     textField_iOS.font = [UIFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
     
@@ -255,10 +226,7 @@ bool CATextField::becomeFirstResponder()
     
     bool result = CAView::becomeFirstResponder();
     
-    CAViewAnimation::beginAnimations(m_s__StrID + "hideTextField", NULL);
-    CAViewAnimation::setAnimationDuration(0);
-    CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CATextField::hideTextField));
-    CAViewAnimation::commitAnimations();
+    this->hideTextField();
     
     [textField_iOS becomeFirstResponder];
     
@@ -558,7 +526,6 @@ void CATextField::setText(const std::string &var)
     m_sText = var;
     
     textField_iOS.text = [NSString stringWithUTF8String:m_sText.c_str()];
-    textField_iOS.beforeText = [textField_iOS text];
     
     this->delayShowImage();
 }

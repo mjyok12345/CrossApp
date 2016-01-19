@@ -93,7 +93,7 @@ CAView::CAView(void)
 , m_bRecursiveDirty(false)
 , m_bDirty(false)
 , m_bHasChildren(false)
-, m_pViewDelegate(NULL)
+, m_pContentContainer(NULL)
 , m_bFrame(true)
 , m_bIsAnimation(false)
 , m_pobBatchView(NULL)
@@ -1176,8 +1176,14 @@ void CAView::visit()
         kmMat4 tm2;
         kmMat4Multiply(&tm2, &modelview, &tm);
 
-        DSize winSize = CAApplication::getApplication()->getWinSize();
-        DPoint point = DPoint(modelview.mat[12], modelview.mat[13]) + winSize/2;
+        DPoint point = DPoint(modelview.mat[12], modelview.mat[13]);
+        
+        static CAApplication* application = CAApplication::getApplication();
+        if (application->getProjection() == CAApplication::P3D)
+        {
+            point = ccpAdd(point, application->getWinSize() / 2);
+        }
+        
         DSize size = DSize(tm2.mat[12] - modelview.mat[12], tm2.mat[13] - modelview.mat[13]);
         DRect frame = DRect(point.x, point.y, size.width, size.height);
         
@@ -1186,8 +1192,8 @@ void CAView::visit()
         {
             float x1 = MAX(s_dip_to_px(frame.getMinX()), restoreScissorRect.getMinX());
             float y1 = MAX(s_dip_to_px(frame.getMinY()), restoreScissorRect.getMinY());
-            float x2 = MIN(s_dip_to_px(frame.getMaxX()), restoreScissorRect.getMaxX());
-            float y2 = MIN(s_dip_to_px(frame.getMaxY()), restoreScissorRect.getMaxY());
+            float x2 = MIN(s_dip_to_px(frame.getMaxX()) + 0.5f, restoreScissorRect.getMaxX());
+            float y2 = MIN(s_dip_to_px(frame.getMaxY()) + 0.5f, restoreScissorRect.getMaxY());
             float width = MAX(x2-x1, 0);
             float height = MAX(y2-y1, 0);
             glScissor(x1, y1, width, height);
@@ -1197,8 +1203,8 @@ void CAView::visit()
             glEnable(GL_SCISSOR_TEST);
             glScissor(s_dip_to_px(frame.origin.x),
                       s_dip_to_px(frame.origin.y),
-                      s_dip_to_px(frame.size.width),
-                      s_dip_to_px(frame.size.height));
+                      s_dip_to_px(frame.size.width) + 0.5f,
+                      s_dip_to_px(frame.size.height) + 0.5f);
         }
     }
 
@@ -1238,6 +1244,16 @@ void CAView::visit()
     }
 
     kmGLPopMatrix();
+}
+
+void CAView::visitEve(void)
+{
+    CAVector<CAView*>::iterator itr=m_obSubviews.begin();
+    while (itr!=m_obSubviews.end())
+    {
+        (*itr)->visitEve();
+        itr++;
+    }
 }
 
 void CAView::transformAncestors()
@@ -1310,9 +1326,9 @@ CAResponder* CAView::nextResponder()
         return NULL;
     }
     
-    if (m_pViewDelegate)
+    if (m_pContentContainer)
     {
-        return dynamic_cast<CAResponder*>(m_pViewDelegate);
+        return dynamic_cast<CAResponder*>(m_pContentContainer);
     }
     return this->getSuperview();
 }
@@ -1339,10 +1355,10 @@ void CAView::onEnterTransitionDidFinish()
             (*itr)->onEnterTransitionDidFinish();
     }
     
-    if (m_pViewDelegate)
+    if (m_pContentContainer)
     {
-        m_pViewDelegate->getSuperViewRect(this->getSuperview()->getBounds());
-        m_pViewDelegate->viewOnEnterTransitionDidFinish();
+        m_pContentContainer->getSuperViewRect(this->getSuperview()->getBounds());
+        m_pContentContainer->viewOnEnterTransitionDidFinish();
     }
 }
 
@@ -1355,9 +1371,9 @@ void CAView::onExitTransitionDidStart()
             (*itr)->onExitTransitionDidStart();
     }
     
-    if (m_pViewDelegate)
+    if (m_pContentContainer)
     {
-        m_pViewDelegate->viewOnExitTransitionDidStart();
+        m_pContentContainer->viewOnExitTransitionDidStart();
     }
 }
 
@@ -1852,7 +1868,8 @@ void CAView::setColor(const CAColor4B& color)
     }
     else
     {
-        _displayedColor = _realColor = color;
+        _realColor = color;
+        _displayedColor = color;
         this->updateColor();
     }
 }
@@ -1876,11 +1893,13 @@ void CAView::updateColor(void)
     {
         if (m_pobImage->getPixelFormat() == CAImage::PixelFormat_RGBA8888
             ||
-            m_pobImage->getPixelFormat() == CAImage::PixelFormat_RGBA4444)
+            m_pobImage->getPixelFormat() == CAImage::PixelFormat_RGBA4444
+            ||
+            m_pobImage->getPixelFormat() == CAImage::PixelFormat_RGB5A1)
         {
-           color4.r = color4.r * _displayedAlpha;
-           color4.g = color4.g * _displayedAlpha;
-           color4.b = color4.b * _displayedAlpha;
+           color4.r = color4.r * color4.a / 255.0f;
+           color4.g = color4.g * color4.a / 255.0f;
+           color4.b = color4.b * color4.a / 255.0f;
         }
     }
    

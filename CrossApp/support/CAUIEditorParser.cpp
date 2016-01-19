@@ -46,6 +46,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.height = atoi(viewXml->Attribute("h"));
         view->setFrame(rect);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            view->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             view->setColor(ccc4Int(atoi(value)));
@@ -63,6 +68,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         imageView->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            imageView->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -91,6 +101,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         scale9ImageVew->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            scale9ImageVew->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -140,6 +155,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.height = atoi(viewXml->Attribute("h"));
         label->setFrame(rect);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            label->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("fontColor"))
         {
             label->setColor(ccc4Int(atoi(value)));
@@ -162,20 +182,17 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 
 		if (const char* value = viewXml->Attribute("bold"))
 		{
-			bool var = (atoi(value) == 1) ? true : false;
-			label->setBold(var);
+			label->setBold(bool(atoi(value)));
 		}
         
 		if (const char* value = viewXml->Attribute("underLine"))
 		{
-			bool var = (atoi(value) == 1) ? true : false;
-			label->setUnderLine(var);
+			label->setUnderLine(bool(atoi(value)));
 		}
 
 		if (const char* value = viewXml->Attribute("italics"))
 		{
-			bool var = (atoi(value) == 1) ? true : false;
-			label->setItalics(var);
+			label->setItalics(bool(atoi(value)));
 		}
 
 		if (const char* value = viewXml->Attribute("lineSpacing"))
@@ -195,8 +212,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 
 		if (const char* value = viewXml->Attribute("enableCopy"))
 		{
-			bool var = (atoi(value) == 1) ? true : false;
-			label->setEnableCopy(var);
+			label->setEnableCopy(bool(atoi(value)));
 		}
 
 		if (const char* value = viewXml->Attribute("numberOfLine"))
@@ -223,6 +239,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         btn->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            btn->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -504,6 +525,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 
 		textField->setFrame(rect);
 
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            textField->setZOrder(atoi(value));
+        }
+        
 		if (const char* value = viewXml->Attribute("textColor"))
 		{
 			textField->setTextColor(ccc4Int(atoi(value)));
@@ -610,6 +636,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.height = atoi(viewXml->Attribute("h"));
         sw->setFrame(rect);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            sw->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             sw->setColor(ccc4Int(atoi(value)));
@@ -617,8 +648,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
 		if (const char* value = viewXml->Attribute("isOn"))
 		{
-			bool var = (atoi(value) == 1) ? true : false;
-			sw->setIsOn(var,false);
+			sw->setIsOn(bool(atoi(value)),false);
 		}
 
         if (const char* value = viewXml->Attribute("onImage"))
@@ -650,6 +680,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         segmentControl->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            segmentControl->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -765,6 +800,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.height = atoi(viewXml->Attribute("h"));
         progress->setFrame(rect);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            progress->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             progress->setColor(ccc4Int(atoi(value)));
@@ -807,6 +847,10 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 		superview->addSubview(textView);
 		map.insert(viewXml->Attribute("textTag"), textView);
 
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            textView->setZOrder(atoi(value));
+        }
 
 		if (const char* value = viewXml->Attribute("titleColor"))
 		{
@@ -847,6 +891,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         slider->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            slider->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -901,6 +950,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.height = atoi(viewXml->Attribute("h"));
         stepper->setFrame(rect);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            stepper->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             stepper->setColor(ccc4Int(atoi(value)));
@@ -943,6 +997,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         activity->setFrame(rect);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            activity->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -1023,6 +1082,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         superview->addSubview(pickerView);
         map.insert(viewXml->Attribute("textTag"), pickerView);
         
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            pickerView->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             pickerView->setColor(ccc4Int(atoi(value)));
@@ -1065,6 +1129,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 		superview->addSubview(datePicker);
 		map.insert(viewXml->Attribute("textTag"), datePicker);
 
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            datePicker->setZOrder(atoi(value));
+        }
+        
 		if (const char* value = viewXml->Attribute("color"))
 		{
 			datePicker->setColor(ccc4Int(atoi(value)));
@@ -1081,6 +1150,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         CAWebView* webView = CAWebView::createWithFrame(rect);
         superview->addSubview(webView);
         map.insert(viewXml->Attribute("textTag"), webView);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            webView->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("url"))
         {
@@ -1103,7 +1177,13 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 		
 		CAGifView* gifView = CAGifView::createWithFrame(rect);
 		superview->addSubview(gifView);
-		map.insert(viewXml->Attribute("textTag"), gifView);
+        map.insert(viewXml->Attribute("textTag"), gifView);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            gifView->setZOrder(atoi(value));
+        }
+        
 		if (gif)
 		{
 			gifView->setGif(gif);
@@ -1122,6 +1202,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         superview->addSubview(pageView);
         map.insert(viewXml->Attribute("textTag"), pageView);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            pageView->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -1165,6 +1250,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         superview->addSubview(tableView);
         map.insert(viewXml->Attribute("textTag"), tableView);
    
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            tableView->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             tableView->setBackgroundColor(ccc4Int(atoi(value)));
@@ -1192,21 +1282,17 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
 
         if (const char* value = viewXml->Attribute("bounce"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            tableView->CAScrollView::setBounces(var);
+            tableView->CAScrollView::setBounces(bool(atoi(value)));
         }
 
         if (const char* value = viewXml->Attribute("showsScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            tableView->setShowsScrollIndicators(var);
+            tableView->setShowsScrollIndicators(bool(atoi(value)));
         }
 
         if (const char* value = viewXml->Attribute("headerRefreshView"))
         {
-        
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeHeader);
                 tableView->setHeaderRefreshView(pullview);
@@ -1215,9 +1301,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("footerRefreshView"))
         {
-
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeFooter);
                 tableView->setFooterRefreshView(pullview);
@@ -1226,16 +1310,12 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("alwaysTopSectionHeader"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            tableView->setAlwaysTopSectionHeader(var);
+            tableView->setAlwaysTopSectionHeader(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("alwaysBottomSectionFooter"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            tableView->setAlwaysBottomSectionFooter(var);
+            tableView->setAlwaysBottomSectionFooter(bool(atoi(value)));
         }
     }
 
@@ -1251,6 +1331,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         superview->addSubview(listView);
         map.insert(viewXml->Attribute("textTag"), listView);
  
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            listView->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             listView->setBackgroundColor(ccc4Int(atoi(value)));
@@ -1278,8 +1363,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("orientation"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 listView->setListViewOrientation(CAListViewOrientation::CAListViewOrientationHorizontal);
             }
@@ -1291,21 +1375,17 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("bounce"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            listView->CAScrollView::setBounces(var);
+            listView->CAScrollView::setBounces(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("showsScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            listView->setShowsScrollIndicators(var);
+            listView->setShowsScrollIndicators(bool(atoi(value)));
         }
 
         if (const char* value = viewXml->Attribute("headerRefreshView"))
         {
-
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeHeader);
                 listView->setHeaderRefreshView(pullview);
@@ -1314,9 +1394,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("footerRefreshView"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeFooter);
                 listView->setFooterRefreshView(pullview);
@@ -1329,7 +1407,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
             listView->setAllowsHeadAndFootHover(var);
         }
     }
-    else if (contrlType.compare("CACollectionView") == 0)
+    else if (contrlType.compare("CAAutoCollectionView") == 0)
     {
         DRect rect;
         rect.origin.x = atoi(viewXml->Attribute("x"));
@@ -1337,10 +1415,15 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         rect.size.width = atoi(viewXml->Attribute("w"));
         rect.size.height = atoi(viewXml->Attribute("h"));
         
-        CACollectionView* collectionView = CACollectionView::createWithFrame(rect);
+        CAAutoCollectionView* collectionView = CAAutoCollectionView::createWithFrame(rect);
         superview->addSubview(collectionView);
         map.insert(viewXml->Attribute("textTag"), collectionView);
   
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            collectionView->setZOrder(atoi(value));
+        }
+        
         if (const char* value = viewXml->Attribute("color"))
         {
             collectionView->setBackgroundColor(ccc4Int(atoi(value)));
@@ -1356,33 +1439,39 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
             collectionView->setCollectionFooterHeight(atoi(value));
         }
         
-        if (const char* value = viewXml->Attribute("horiInterval"))
+        if (const char* value = viewXml->Attribute("horiMargins"))
         {
-            collectionView->setHoriInterval(atoi(value));
+            collectionView->setHoriMargins(atoi(value));
         }
         
-        if (const char* value = viewXml->Attribute("vertInterval"))
+        if (const char* value = viewXml->Attribute("vertMargins"))
         {
-            collectionView->setVertInterval(atoi(value));
+            collectionView->setVertMargins(atoi(value));
+        }
+        
+        if (const char* value = viewXml->Attribute("horiCellInterval"))
+        {
+            collectionView->setHoriCellInterval(atoi(value));
+        }
+        
+        if (const char* value = viewXml->Attribute("vertCellInterval"))
+        {
+            collectionView->setVertCellInterval(atoi(value));
         }
 
         if (const char* value = viewXml->Attribute("bounce"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->CAScrollView::setBounces(var);
+            collectionView->CAScrollView::setBounces(bool(atoi(value)));
         }
 
         if (const char* value = viewXml->Attribute("showsScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->setShowsScrollIndicators(var);
+            collectionView->setShowsScrollIndicators(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("headerRefreshView"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeHeader);
                 collectionView->setHeaderRefreshView(pullview);
@@ -1391,9 +1480,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("footerRefreshView"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeFooter);
                 collectionView->setFooterRefreshView(pullview);
@@ -1402,26 +1489,22 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("alwaysTopSectionHeader"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->setAlwaysTopSectionHeader(var);
+            collectionView->setAlwaysTopSectionHeader(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("alwaysBottomSectionFooter"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->setAlwaysBottomSectionFooter(var);
+            collectionView->setAlwaysBottomSectionFooter(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("allowsSelection"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->setAllowsSelection(var);
+            collectionView->setAllowsSelection(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("allowsMultipleSelection"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            collectionView->setAllowsMultipleSelection(var);
+            collectionView->setAllowsMultipleSelection(bool(atoi(value)));
         }
     }
     else if (contrlType.compare("CAWaterfallView") == 0)
@@ -1435,6 +1518,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         CAWaterfallView* waterfallView = CAWaterfallView::createWithFrame(rect);
         superview->addSubview(waterfallView);
         map.insert(viewXml->Attribute("textTag"), waterfallView);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            waterfallView->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -1468,21 +1556,17 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("bounce"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->CAScrollView::setBounces(var);
+            waterfallView->CAScrollView::setBounces(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("showsScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->setShowsScrollIndicators(var);
+            waterfallView->setShowsScrollIndicators(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("headerRefreshView"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeHeader);
                 waterfallView->setHeaderRefreshView(pullview);
@@ -1491,9 +1575,7 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("footerRefreshView"))
         {
-            
-            bool var = (atoi(value)==1) ? true : false;
-            if(var)
+            if(bool(atoi(value)))
             {
                 CrossApp::CAPullToRefreshView *pullview = CAPullToRefreshView::create(CrossApp::CAPullToRefreshView::CAPullToRefreshType::CAPullToRefreshTypeFooter);
                 waterfallView->setFooterRefreshView(pullview);
@@ -1502,26 +1584,22 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("alwaysTopSectionHeader"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->setAlwaysTopSectionHeader(var);
+            waterfallView->setAlwaysTopSectionHeader(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("alwaysBottomSectionFooter"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->setAlwaysBottomSectionFooter(var);
+            waterfallView->setAlwaysBottomSectionFooter(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("allowsSelection"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->setAllowsSelection(var);
+            waterfallView->setAllowsSelection(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("allowsMultipleSelection"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            waterfallView->setAllowsMultipleSelection(var);
+            waterfallView->setAllowsMultipleSelection(bool(atoi(value)));
         }
     }
     else if (contrlType.compare("CAScrollView") == 0)
@@ -1535,6 +1613,11 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         CAScrollView* scrollView = CAScrollView::createWithFrame(rect);
         superview->addSubview(scrollView);
         map.insert(viewXml->Attribute("textTag"), scrollView);
+        
+        if (const char* value = viewXml->Attribute("z"))
+        {
+            scrollView->setZOrder(atoi(value));
+        }
         
         if (const char* value = viewXml->Attribute("color"))
         {
@@ -1576,32 +1659,27 @@ CAView* layoutView(tinyxml2::XMLElement* viewXml, CAView* superview, CAMap<std::
         
         if (const char* value = viewXml->Attribute("touchEnabledAtSubviews"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            scrollView->setTouchEnabledAtSubviews(var);
+            scrollView->setTouchEnabledAtSubviews(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("showsHorizontalScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            scrollView->setShowsHorizontalScrollIndicator(var);
+            scrollView->setShowsHorizontalScrollIndicator(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("showsVerticalScrollIndicator"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            scrollView->setShowsVerticalScrollIndicator(var);
+            scrollView->setShowsVerticalScrollIndicator(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("bounceHorizontal"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            scrollView->setBounceHorizontal(var);
+            scrollView->setBounceHorizontal(bool(atoi(value)));
         }
         
         if (const char* value = viewXml->Attribute("bounceVertical"))
         {
-            bool var = (atoi(value)==1) ? true : false;
-            scrollView->setBounceVertical(var);
+            scrollView->setBounceVertical(bool(atoi(value)));
         }
     }
 
@@ -1667,21 +1745,12 @@ void CAUIEditorParser::parseViewControllItems(CAViewController* viewController)
 	tinyxml2::XMLElement* rootElement = m_pMyDocument->RootElement();
 
 	tinyxml2::XMLElement* entity = NULL;
-	if (rootElement)
-	{
-		entity = rootElement->FirstChildElement();
-	}
 
-
-	entity = entity->NextSiblingElement();
-
-	std::string contrlID = entity->Attribute("id");
+    entity = rootElement->FirstChildElement("CATabBarItem");
 
 	if (entity)
 	{
 		//CATabBarItem
-		if (contrlID.compare("CATabBarItem") == 0)
-		{
 			std::string barTitle = "";
 			CAImage* image = NULL;
 			CAImage* selectImage = NULL;
@@ -1705,17 +1774,13 @@ void CAUIEditorParser::parseViewControllItems(CAViewController* viewController)
 			}
 
 			viewController->setTabBarItem(item);
-
-		}
 	}
 
-	entity = entity->NextSiblingElement();
-	std::string navigationID = entity->Attribute("id");
+	entity = rootElement->FirstChildElement("CANavigationBarItem");
 	if (entity)
 	{
 		//CANavigationItem
-		if (navigationID.compare("CANavigationBarItem") == 0)
-		{
+
 			CANavigationBarItem* navigationBarItem = NULL;
 			if (const char* value = entity->Attribute("title"))
 			{
@@ -1783,7 +1848,6 @@ void CAUIEditorParser::parseViewControllItems(CAViewController* viewController)
 
 				viewController->setNavigationBarItem(navigationBarItem);
 			}
-		}
 	}
 }
 

@@ -26,7 +26,7 @@ static CATempTypeFont s_TempFont;
 
 
 #define ITALIC_LEAN_VALUE (0.3f)
-#define DEFAULT_SPACE_VALUE (2)
+#define DEFAULT_SPACE_VALUE (1)
 
 CAFreeTypeFont::CAFreeTypeFont()
 :m_space(" ")
@@ -70,7 +70,7 @@ void CAFreeTypeFont::destroyAllFontBuff()
 
 
 CAImage* CAFreeTypeFont::initWithString(const std::string& pText, const CAColor4B& fontColor, const std::string& pFontName, int nSize, int inWidth, int inHeight,
-	CATextAlignment hAlignment, CAVerticalTextAlignment vAlignment, bool bWordWrap, int iLineSpacing, bool bBold, bool bItalics, bool bUnderLine, std::vector<TextViewLineInfo>* pLinesText)
+	CATextAlignment hAlignment, CAVerticalTextAlignment vAlignment, bool bWordWrap, int iLineSpacing, bool bBold, bool bItalics, bool bUnderLine, bool bDeleteLine, std::vector<TextViewLineInfo>* pLinesText)
 {
 	if (pText.empty())
 		return NULL;
@@ -87,9 +87,9 @@ _AgaginInitGlyphs:
 	m_bBold = bBold;
 	m_bItalics = bItalics;
 	m_bUnderLine = bUnderLine;
+	m_bDeleteLine = bDeleteLine;
 	m_cFontColor = fontColor;
 
-	
 	FT_Error error = initGlyphs(cszNewText.c_str());
 	if (error) return NULL;
 
@@ -174,7 +174,9 @@ _AgaginInitGlyphs:
         CC_SAFE_RELEASE_NULL(image);
 	}
 	delete[]pData;
-
+#if (CC_TARGET_PLATFORM != CC_PLATFORM_ANDROID)
+    image->releaseData();
+#endif
 	image->autorelease();
 	return image;
 }
@@ -203,6 +205,10 @@ unsigned char* CAFreeTypeFont::getBitmap(ETextAlign eAlignMask, int* outWidth, i
 		if (m_bUnderLine)
 		{
 			draw_line(pBuffer, (FT_Int)pen.x, (FT_Int)pen.y, (FT_Int)(pen.x + (*line)->width), (FT_Int)pen.y);
+		}
+		if (m_bDeleteLine)
+		{
+			draw_line(pBuffer, (FT_Int)pen.x, (FT_Int)(pen.y - m_inFontSize*0.3f), (FT_Int)(pen.x + (*line)->width), (FT_Int)(pen.y - m_inFontSize*0.3f));
 		}
         lineNumber++;
     }
@@ -522,7 +528,7 @@ static int getEmojiOffset(int lineHeight)
     return value;
 }
 
-void  CAFreeTypeFont::drawText(FTLineInfo* pInfo, unsigned char* pBuffer, FT_Vector *pen)
+void CAFreeTypeFont::drawText(FTLineInfo* pInfo, unsigned char* pBuffer, FT_Vector *pen)
 {
 	std::vector<TGlyph>& glyphs = pInfo->glyphs;
 	for (std::vector<TGlyph>::reverse_iterator glyph = glyphs.rbegin(); glyph != glyphs.rend(); ++glyph)
@@ -602,9 +608,9 @@ void CAFreeTypeFont::draw_bitmap(unsigned char* pBuffer, FT_Bitmap*  bitmap, FT_
 			unsigned char value = bitmap->buffer[q * bitmap->width + p];
 			if (value > 0)
 			{
-				pBuffer[index++] = m_cFontColor.r*value / 255.0f;
-				pBuffer[index++] = m_cFontColor.g*value / 255.0f;
-				pBuffer[index++] = m_cFontColor.b*value / 255.0f;
+                pBuffer[index++] = m_cFontColor.r * value / 255.0f;
+				pBuffer[index++] = m_cFontColor.g * value / 255.0f;
+				pBuffer[index++] = m_cFontColor.b * value / 255.0f;
 				pBuffer[index++] = value;
 			}
         }
