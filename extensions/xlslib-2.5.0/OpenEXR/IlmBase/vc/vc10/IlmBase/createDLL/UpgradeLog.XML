@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type='text/xsl' href='_UpgradeReport_Files/UpgradeReport.xslt'?><UpgradeLog>
+<Properties><Property Name="Solution" Value="createDLL">
+</Property><Property Name="解决方案文件" Value="H:\scjmjy\Code\App\CrossApp\extensions\xlslib-2.5.0\OpenEXR\IlmBase\vc\vc10\IlmBase\createDLL\createDLL.sln">
+</Property><Property Name="Date" Value="2016年1月21日">
+</Property><Property Name="Time" Value="14:22:19">
+</Property></Properties><Event ErrorLevel="0" Project="createDLL" Source="createDLL.vcproj" Description="Converting project file 'H:\scjmjy\Code\App\CrossApp\extensions\xlslib-2.5.0\OpenEXR\IlmBase\vc\vc10\IlmBase\createDLL\createDLL.vcproj'.">
+</Event><Event ErrorLevel="2" Project="createDLL" Source="createDLL.vcproj" Description="结束标记 'xs:choice' 与开始标记 'xs:sequence' 不匹配。&#xA;">
+</Event><Event ErrorLevel="2" Project="H:\scjmjy\Code\App\CrossApp\extensions\xlslib-2.5.0\OpenEXR\IlmBase\vc\vc10\IlmBase\createDLL\createDLL.vcproj" Source="" Description="The following error has occurred during XML parsing:&#xA;&#xA;File: H:\scjmjy\Code\App\CrossApp\extensions\xlslib-2.5.0\OpenEXR\IlmBase\vc\vc10\IlmBase\createDLL\createDLL.vcproj&#xA;Line: 5&#xA;Column: 21&#xA;Error Message:&#xA;无效指针&#xA;&#xA;The file 'H:\scjmjy\Code\App\CrossApp\extensions\xlslib-2.5.0\OpenEXR\IlmBase\vc\vc10\IlmBase\createDLL\createDLL.vcproj' has failed to load.">
+</Event><Event ErrorLevel="2" Project="createDLL" Source="createDLL.vcproj" Description="项目升级失败。">
+</Event><Event ErrorLevel="3" Project="createDLL" Source="createDLL.vcproj" Description="未转换">
+</Event><Event ErrorLevel="2" Project="" Source="createDLL.vcproj" Description="项目升级失败。">
+</Event></UpgradeLog>
