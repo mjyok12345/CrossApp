@@ -16,7 +16,7 @@
 
 #define CLASS_NAME "org/CrossApp/lib/CrossAppTextField"
 #define GET_CLASS "(I)Lorg/CrossApp/lib/CrossAppTextField;"
-#define CAColorToJavaColor(color) (color.a + color.g * 0x100 + color.r * 0x10000 + color.a * 0x1000000)
+#define CAColorToJavaColor(color) (color.b + color.g * 0x100 + color.r * 0x10000 + color.a * 0x1000000)
 NS_CC_BEGIN
 
 static std::map<int , CATextField*> s_map;
@@ -294,7 +294,7 @@ extern "C"
         unsigned char* data = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 4);
         env->GetByteArrayRegion(buf, 0, width * height * 4, (jbyte *)data);
         CAImage* image = CAImage::createWithRawDataNoCache(data, CAImage::PixelFormat_RGBA8888, width, height);
-        CAImageView* imageView = (CAImageView*)(s_map[(int)key]->getSubviewByTextTag("textField"));
+        CAImageView* imageView = (CAImageView*)(s_map[(int)key]->getSubviewByTag(0xbcda));
         imageView->setImage(image);
         imageView->setVisible(true);
         s_map[(int)key]->reViewlayout();
@@ -303,8 +303,11 @@ extern "C"
     
     JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextField_hideImageView(JNIEnv *env, jclass cls, jint key)
     {
-        CAImageView* imageView = (CAImageView*)(s_map[(int)key]->getSubviewByTextTag("textField"));
-        imageView->setVisible(false);
+        CAImageView* imageView = (CAImageView*)(s_map[(int)key]->getSubviewByTag(0xbcda));
+        if (imageView)
+        {
+            imageView->setVisible(false);
+        }
     }
     
     //textfield delegate
@@ -332,7 +335,7 @@ extern "C"
         }
     }
     
-    JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextField_textChange(JNIEnv *env, jclass cls, jint key, jstring before, jstring change, int arg0, int arg1, int arg2)
+    JNIEXPORT bool JNICALL Java_org_CrossApp_lib_CrossAppTextField_textChange(JNIEnv *env, jclass cls, jint key, jstring before, jstring change, int arg0, int arg1)
     {
         const char* charBefore = env->GetStringUTFChars(before, NULL);
         std::string strBefore = charBefore;
@@ -344,13 +347,23 @@ extern "C"
         CATextField* textField = s_map[(int)key];
         if (textField->getDelegate())
         {
-            textField->getDelegate()->textFieldAfterTextChanged(textField, strBefore.c_str(), strChange.c_str(), arg0, arg1, arg2);
+			return textField->getDelegate()->textFieldShouldChangeCharacters(textField, arg0, arg1, strChange.c_str());
         }
+
+		return true;
     }
     
-    JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextField_text(JNIEnv *env, jclass cls, jint key, jstring jtext)
+    JNIEXPORT void JNICALL Java_org_CrossApp_lib_CrossAppTextField_text(JNIEnv *env, jclass cls, jint key, jbyteArray textBuffer, int lenght)
     {
-        const char* text = env->GetStringUTFChars(jtext, NULL);
+        char* buffer = (char*)malloc(sizeof(char) * lenght);
+        env->GetByteArrayRegion(textBuffer, 0, lenght, (jbyte *)buffer);
+        
+        std::string text;
+        text.resize(lenght);
+        for (int i=0; i<lenght; i++)
+        {
+            text[i] = buffer[i];
+        }
         
         s_lock = true;
         CATextField* textField = s_map[(int)key];
@@ -378,13 +391,15 @@ CATextField::CATextField()
 , m_iMarginRight(10)
 , m_iFontSize(40)
 , m_iMaxLenght(0)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     s_map[m_u__ID] = this;
     this->setHaveNextResponder(false);
     onCreateView(m_u__ID);
-    this->setPlaceHolderText("placeholder");
+    this->setPlaceHolderText("");
     setFontSizeJNI(m_u__ID, m_iFontSize / 2);
 }
 
@@ -404,6 +419,11 @@ void CATextField::onEnterTransitionDidFinish()
 void CATextField::onExitTransitionDidStart()
 {
     CAView::onExitTransitionDidStart();
+    
+    if (this->isFirstResponder())
+    {
+        this->resignFirstResponder();
+    }
 }
 
 void showClearButtonJNI(int key)
@@ -434,7 +454,7 @@ bool CATextField::resignFirstResponder()
     
     this->hideNativeTextField();
 
-    if (m_eClearBtn == ClearButtonMode::ClearButtonWhileEditing)
+    if (m_eClearBtn == WhileEditing)
     {
         CAImageView* ima = (CAImageView*)this->getSubviewByTag(1011);
         ima->setImage(NULL);
@@ -456,11 +476,17 @@ bool CATextField::becomeFirstResponder()
 
 	this->showNativeTextField();
 
-	if (m_eClearBtn == ClearButtonMode::ClearButtonWhileEditing)
+	if (m_eClearBtn == WhileEditing)
 	{
         CAImageView* ima = (CAImageView*)this->getSubviewByTag(1011);
         ima->setImage(CAImage::create("source_material/clear_button.png"));
 	}
+    
+    if (CAViewAnimation::areBeginAnimationsWithID(m_s__StrID + "showImage"))
+    {
+        CAViewAnimation::removeAnimations(m_s__StrID + "showImage");
+    }
+    
     return result;
 }
 
@@ -539,7 +565,7 @@ bool CATextField::init()
     
 	m_pImgeView = CAImageView::createWithFrame(DRect(0, 0, 1, 1));
 	this->addSubview(m_pImgeView);
-    m_pImgeView->setTextTag("textField");
+    m_pImgeView->setTag(0xbcda);
     
     return true;
 }
@@ -548,10 +574,8 @@ void CATextField::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
         
         point.x = s_dip_to_px(point.x);
         point.y = s_dip_to_px(point.y);
@@ -564,7 +588,7 @@ void CATextField::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     DSize size;
     size.width = s_dip_to_px(worldContentSize.width);
@@ -622,10 +646,10 @@ void CATextField::setMarginLeft(int var)
 {
 	m_iMarginLeft = var;
 
-	DSize worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginLeft,0), worldToNodeTransform());
+	DSize worldContentSize = this->convertToWorldSize(DSize(m_iMarginLeft, 0));
 	float x = s_dip_to_px(worldContentSize.width);
 
-	worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginRight, 0), worldToNodeTransform());
+	worldContentSize = this->convertToWorldSize(DSize(m_iMarginRight, 0));
 	float y = s_dip_to_px(worldContentSize.width);
 
 	setMarginJNI(m_u__ID, x, y);
@@ -640,14 +664,14 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginLeft, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(m_iMarginLeft, 0));
         float x = s_dip_to_px(worldContentSize.width);
         
-        worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginRight, 0), worldToNodeTransform());
+        worldContentSize = this->convertToWorldSize(DSize(m_iMarginRight, 0));
         float y = s_dip_to_px(worldContentSize.width);
         
         setMarginJNI(m_u__ID, x, y);
@@ -683,7 +707,7 @@ void CATextField::setMarginImageRight(const DSize& imgSize, const std::string& f
 	//set margins
 	setMarginRight(imgSize.width);
 
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         //setimage
         CAImageView* ima = (CAImageView*)this->getSubviewByTag(1011);

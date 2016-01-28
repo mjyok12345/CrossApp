@@ -63,10 +63,6 @@ bool RootWindow::init()
     m_pRootDrawerController = drawer;
     CAApplication::getApplication()->setNotificationView(NULL);
 
-    CAButton* button = CAButton::createWithFrame(DRect(600, 0, 150, 80), CAButtonTypeRoundedRect);
-    //this->insertSubview(button, 999);
-    //button->addTarget(this, CAControl_selector(RootWindow::keyBackClicked), CAControlEventTouchUpInSide);
-    
     return true;
 }
 

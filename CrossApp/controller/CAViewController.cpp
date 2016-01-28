@@ -31,13 +31,13 @@ CAViewController::CAViewController()
 {
     m_pView = CAView::createWithColor(CAColor_white);
     m_pView->retain();
-    m_pView->setViewDelegate(this);
+    m_pView->setContentContainer(this);
 }
 
 CAViewController::~CAViewController()
 {
     CC_SAFE_RELEASE_NULL(m_pParser);
-    m_pView->setViewDelegate(NULL);
+    m_pView->setContentContainer(NULL);
     CC_SAFE_RELEASE_NULL(m_pView);
     CC_SAFE_RELEASE_NULL(m_pTabBarItem);
     CC_SAFE_RELEASE_NULL(m_pNavigationBarItem);
@@ -201,8 +201,7 @@ void CAViewController::setTabBarItem(CATabBarItem* item)
 
 bool CAViewController::ccTouchBegan(CATouch *pTouch, CAEvent *pEvent)
 {
-
-    return false;
+    return true;
 }
 
 void CAViewController::ccTouchMoved(CATouch *pTouch, CAEvent *pEvent)
@@ -1031,6 +1030,7 @@ void CANavigationController::ccTouchMoved(CATouch *pTouch, CAEvent *pEvent)
         showContainer->setFrame(this->getView()->getBounds());
     }
     showContainer->setVisible(true);
+    showContainer->setTouchEnabled(false);
     
     CAView* backContainer = m_pContainers.back();
     
@@ -1039,6 +1039,7 @@ void CANavigationController::ccTouchMoved(CATouch *pTouch, CAEvent *pEvent)
     point1.x = MAX(point1.x, 0);
     point1.x = MIN(point1.x, this->getView()->getBounds().size.width);
     backContainer->setFrameOrigin(point1);
+    backContainer->setTouchEnabled(false);
     
     DPoint point2 = showContainer->getCenterOrigin();
     point2.x = point1.x/2;
@@ -1058,8 +1059,10 @@ void CANavigationController::ccTouchEnded(CATouch *pTouch, CAEvent *pEvent)
     
     CAView* lastContainer = m_pContainers.at(index);
     lastContainer->setVisible(true);
+    lastContainer->setTouchEnabled(true);
     
     CAView* backContainer = m_pContainers.back();
+    backContainer->setTouchEnabled(true);
     
     CAApplication::getApplication()->getTouchDispatcher()->setDispatchEventsFalse();
     

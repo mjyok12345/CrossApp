@@ -18,6 +18,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
@@ -33,6 +34,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import android.widget.RelativeLayout.LayoutParams;
 
 import org.CrossApp.lib.AndroidVolumeControl;
 import org.CrossApp.lib.AndroidNetWorkManager;
@@ -116,22 +118,24 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
     	this.init();
     	rootview = this.getWindow().getDecorView();
 		Cocos2dxHelper.init(this, this);
-		CrossAppTextField.initWithHandler();
-		CrossAppTextView.initWithHandler();
-		
+
 		exeHandler();
 		AndroidNetWorkManager.setContext(this);
 		
-		 if(mWebViewHelper == null)
+		 if(savedInstanceState == null)
 		 {
-			 mWebViewHelper = new Cocos2dxWebViewHelper(frame);
+			mWebViewHelper = new Cocos2dxWebViewHelper(frame);
+			CrossAppTextField.initWithHandler();
+			CrossAppTextView.initWithHandler();
 		 }
-		 if (savedInstanceState != null && savedInstanceState.containsKey("WEBVIEW"))
+		 else if (savedInstanceState != null && savedInstanceState.containsKey("WEBVIEW"))
 		 {
 			 mWebViewHelper = new Cocos2dxWebViewHelper(frame);
 			 String[] strs = savedInstanceState.getStringArray("WEBVIEW");
 			 mWebViewHelper.setAllWebviews(strs);
 			 savedInstanceState.clear();
+			 CrossAppTextField.reload();
+			 CrossAppTextView.reload();
 		 }
 		 IntentFilter intentFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
 
@@ -487,17 +491,19 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
 
 	}
 	@Override
-	protected void onResume() {
+	protected void onResume() 
+	{
 		super.onResume();
-		if (_sTextField!=null) {
+		if (_sTextField != null) 
+		{
 			_sTextField.resume();
 		}
-		if (_sTextView!=null) {
+		
+		if (_sTextView != null)
+		{
 			_sTextView.resume();
 		}
-		
-		
-		
+
 		Cocos2dxHelper.onResume();
 		this.mGLSurfaceView.onResume();
 		if (AndroidGPS.locationManager!=null)
@@ -552,7 +558,6 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
         framelayout.setLayoutParams(framelayout_params);
         frame = framelayout;
 
-
         // Cocos2dxGLSurfaceView
         this.mGLSurfaceView = this.onCreateView();
 
@@ -561,13 +566,15 @@ public abstract class Cocos2dxActivity extends Activity implements Cocos2dxHelpe
 
         // Switch to supported OpenGL (ARGB888) mode on emulator
         if (isAndroidEmulator())
+        {
            this.mGLSurfaceView.setEGLConfigChooser(8 , 8, 8, 8, 16, 0);
+        }
+        
         mCocos2dxRenderer = new Cocos2dxRenderer();
         this.mGLSurfaceView.setCocos2dxRenderer(mCocos2dxRenderer);
 
         // Set framelayout as the content view
 		setContentView(framelayout);
-		
 	}
 	
 	public static int dip2px(Context context, float dpValue) {

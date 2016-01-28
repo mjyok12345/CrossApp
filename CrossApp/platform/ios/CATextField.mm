@@ -17,25 +17,39 @@
 
 @interface IOSTextField: UITextField<UITextFieldDelegate>
 {
-    BOOL _isShouldEdit;
+
 }
 
 @property(nonatomic,assign) CrossApp::CATextField* textField;
-@property(nonatomic,retain) NSString* beforeText;
 
 -(void)regiestKeyBoardMessage;
 -(void)removeTextView;
+-(void)hide;
 @end
  
 @implementation IOSTextField
 {
-    
+
+}
+
+-(id)initWithFrame:(CGRect)frame
+{
+    if ([super initWithFrame:frame])
+    {
+        return self;
+    }
+    return nil;
+}
+
+-(void)dealloc
+{
+    [super dealloc];
 }
 
 -(void)hide
 {
     CGRect rect = self.frame;
-    rect.origin = CGPointMake(5000, 5000);
+    rect.origin = CGPointMake(-5000, -5000);
     self.frame = rect;
 }
 
@@ -44,8 +58,6 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillWasShown:) name:UIKeyboardWillShowNotification object:nil];
 
     [[NSNotificationCenter defaultCenter]  addObserver:self selector:@selector(keyboardWasHidden:) name:UIKeyboardWillHideNotification object:nil];
-    
-    [self addTarget:self action:@selector(textFieldEditChanged:) forControlEvents:UIControlEventEditingChanged];
 }
 
 -(void)removeTextView
@@ -54,46 +66,6 @@
     [self removeFromSuperview];
 }
 
-- (void)textFieldEditChanged:(UITextField *)textField
-{
-    if (_isShouldEdit)
-    {
-        _isShouldEdit = NO;
-        std::string str = [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding];
-        self.beforeText = [textField text];
-        return;
-    }
-    
-    NSString *stra = @"";
-    NSString *strb = @"";
-    int location = 0;
-    for (int i =0,j =0; i<[self.beforeText length]; i++)
-    {
-        location = i;
-        CC_BREAK_IF(i+1>[textField text].length);
-        
-        strb = [self.beforeText substringWithRange:NSMakeRange(i, 1)];
-        stra = [[textField text] substringWithRange:NSMakeRange(j, 1)];
-        
-        CC_BREAK_IF(![strb isEqualToString:stra]);
-        j++;
-    }
-
-    std::string str = [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding];
-    self.beforeText = [textField text];
-
-    if (_textField->getDelegate())
-    {
-        _textField->getDelegate()->textFieldAfterTextChanged(_textField,
-                                                             str.c_str(),
-                                                             "",
-                                                             location,
-                                                             1,
-                                                             0);
-    }
-    
-    _isShouldEdit = NO;
-}
 
 - (void) keyboardWillWasShown:(NSNotification *) notif
 {
@@ -134,15 +106,14 @@
 
 - (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
-    _isShouldEdit = YES;
     
     if (_textField->getMaxLenght() > 0)
     {
-        NSUInteger oldLength = [[textField text] length];
-        NSUInteger replacementLength = [string length];
-        NSUInteger rangeLength = range.length;
+        NSUInteger oldLenght = [[textField text] length];
+        NSUInteger addLenght = [string length];
+        NSUInteger delLenght = range.length;
         
-        NSUInteger newLength = oldLength - rangeLength + replacementLength;
+        NSUInteger newLength = oldLenght + addLenght - delLenght;
         
         if (newLength > _textField->getMaxLenght())
         {
@@ -150,13 +121,13 @@
         }
     }
     
-    std::string str = self.beforeText != nil ? [self.beforeText cStringUsingEncoding:NSUTF8StringEncoding] : "";
-    std::string insert = [string cStringUsingEncoding:NSUTF8StringEncoding];
-    self.beforeText = [textField text];
-    
     if (_textField->getDelegate())
     {
-        _textField->getDelegate()->textFieldAfterTextChanged(_textField, str.c_str(), insert.c_str(), (int)range.location, 0, (int)string.length);
+        std::string text = [string UTF8String];
+        return _textField->getDelegate()->textFieldShouldChangeCharacters(_textField,
+                                                                          (unsigned int)range.location,
+                                                                          (unsigned int)range.length,
+                                                                          text);
     }
     
     
@@ -181,22 +152,25 @@ CATextField::CATextField()
 , m_iMarginRight(10)
 , m_iFontSize(40)
 , m_iMaxLenght(0)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
     
-    CGPoint point = CGPointMake(5000, 5000);
+    CGPoint point = CGPointMake(-5000, -5000);
     m_pTextField = [[IOSTextField alloc]initWithFrame:CGRectMake(point.x, point.y, 100, 40)];
     EAGLView * eaglview = [EAGLView sharedEGLView];
     [eaglview addSubview:textField_iOS];
+    [textField_iOS release];
     textField_iOS.textField = this;
     textField_iOS.delegate = textField_iOS;
     textField_iOS.regiestKeyBoardMessage;
     textField_iOS.keyboardType = UIKeyboardTypeDefault;
     textField_iOS.returnKeyType = UIReturnKeyDone;
     textField_iOS.borderStyle = UITextBorderStyleNone;
-    textField_iOS.placeholder = @"placeholder";
+    textField_iOS.placeholder = @"";
     CGFloat scale = [[UIScreen mainScreen] scale];
     textField_iOS.font = [UIFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
     
@@ -252,10 +226,7 @@ bool CATextField::becomeFirstResponder()
     
     bool result = CAView::becomeFirstResponder();
     
-    CAViewAnimation::beginAnimations(m_s__StrID + "hideTextField", NULL);
-    CAViewAnimation::setAnimationDuration(0);
-    CAViewAnimation::setAnimationDidStopSelector(this, CAViewAnimation0_selector(CATextField::hideTextField));
-    CAViewAnimation::commitAnimations();
+    this->hideTextField();
     
     [textField_iOS becomeFirstResponder];
     
@@ -283,6 +254,7 @@ void CATextField::hideNativeTextField()
 
 void CATextField::showNativeTextField()
 {
+    this->update(0);
     CAScheduler::schedule(schedule_selector(CATextField::update), this, 1/60.0f);
 }
 
@@ -365,10 +337,8 @@ void CATextField::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
-        
-        CC_BREAK_IF(m_obLastPoint.equals(point));
 
         CGFloat scale = [[UIScreen mainScreen] scale];
         CGRect rect = textField_iOS.frame;
@@ -383,7 +353,7 @@ void CATextField::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect = textField_iOS.frame;
@@ -432,22 +402,22 @@ void CATextField::setKeyboardType(const KeyboardType& type)
     
     UIKeyboardType keyBoardType = UIKeyboardTypeDefault;
     switch (type) {
-        case KeyboardType::KeyboardTypeNumbersAndPunctuation:
+        case KeyboardType::NumbersAndPunctuation:
             keyBoardType = UIKeyboardTypeNumbersAndPunctuation;
             break;
-        case KeyboardType::KeyboardTypeURL:
+        case KeyboardType::URL:
             keyBoardType = UIKeyboardTypeURL;
             break;
-        case KeyboardType::KeyboardTypeNumberPad:
+        case KeyboardType::NumberPad:
             keyBoardType = UIKeyboardTypeNumberPad;
             break;
-        case KeyboardType::KeyboardTypePhonePad:
+        case KeyboardType::PhonePad:
             keyBoardType = UIKeyboardTypePhonePad;
             break;
-        case KeyboardType::KeyboardTypeNamePhonePad:
+        case KeyboardType::NamePhonePad:
             keyBoardType = UIKeyboardTypeNamePhonePad;
             break;
-        case KeyboardType::KeyboardTypeEmailAddress:
+        case KeyboardType::EmailAddress:
             keyBoardType = UIKeyboardTypeEmailAddress;
             break;
         default:
@@ -469,16 +439,16 @@ void CATextField::setReturnType(const ReturnType &var)
     
     UIReturnKeyType keyBoardReturnType = UIReturnKeyDone;
     switch (var) {
-        case ReturnType::ReturnTypeGo:
+        case Go:
             keyBoardReturnType = UIReturnKeyGo;
             break;
-        case ReturnType::ReturnTypeNext:
+        case Next:
             keyBoardReturnType = UIReturnKeyNext;
             break;
-        case ReturnType::ReturnTypeSearch:
+        case Search:
             keyBoardReturnType = UIReturnKeySearch;
             break;
-        case ReturnType::ReturnTypeSend:
+        case Send:
             keyBoardReturnType = UIReturnKeySend;
             break;
         default:
@@ -556,7 +526,6 @@ void CATextField::setText(const std::string &var)
     m_sText = var;
     
     textField_iOS.text = [NSString stringWithUTF8String:m_sText.c_str()];
-    textField_iOS.beforeText = [textField_iOS text];
     
     this->delayShowImage();
 }
@@ -589,7 +558,7 @@ void CATextField::setMarginLeft(int var)
 {
     m_iMarginLeft = var;
     
-    DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
     
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGFloat x = s_dip_to_px(worldContentSize.width) / scale;
@@ -609,11 +578,11 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
         
         CGFloat scale = [[UIScreen mainScreen] scale];
         CGFloat x = s_dip_to_px(worldContentSize.width) / scale;
@@ -634,7 +603,7 @@ int CATextField::getMarginRight()
 
 void CATextField::setMarginImageLeft(const DSize& imgSize,const std::string& filePath)
 {
-    DSize worldContentSize = DSizeApplyAffineTransform(imgSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(imgSize);
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect;
     rect.origin.x = 0;
@@ -653,7 +622,7 @@ void CATextField::setMarginImageLeft(const DSize& imgSize,const std::string& fil
 
 void CATextField::setMarginImageRight(const DSize& imgSize,const std::string& filePath)
 {
-    DSize worldContentSize = DSizeApplyAffineTransform(imgSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(imgSize);
     CGFloat scale = [[UIScreen mainScreen] scale];
     CGRect rect;
     rect.origin.x = 0;
@@ -677,7 +646,7 @@ void CATextField::setClearButtonMode(const ClearButtonMode &var)
     UITextFieldViewMode mode= UITextFieldViewModeNever;
     switch (var)
     {
-        case ClearButtonMode::ClearButtonWhileEditing:
+        case WhileEditing:
             mode = UITextFieldViewModeWhileEditing;
             textField_iOS.rightViewMode = UITextFieldViewModeNever;
             break;
@@ -702,13 +671,13 @@ void CATextField::setTextFieldAlign(const TextFieldAlign &var)
     
     switch (var)
     {
-        case CATextField::TextEditAlignCenter:
+        case Center:
             textField_iOS.textAlignment = NSTextAlignmentCenter;
             break;
-        case CATextField::TextEditAlignLeft:
+        case Left:
             textField_iOS.textAlignment = NSTextAlignmentLeft;
             break;
-        case CATextField::TextEditAlignRight:
+        case Right:
             textField_iOS.textAlignment = NSTextAlignmentRight;
             break;
         default:

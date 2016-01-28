@@ -35,6 +35,7 @@ public:
 		, m_iString_l_length(0)
 		, m_iString_r_length(0)
 		, m_iString_o_length(0)
+		, m_bCallbackTextChanged(true)
 	{
 		m_hEditCur = LoadCursor(NULL, IDC_IBEAM);
 		m_iFontHeight = CAImage::getFontHeight(m_szFontName.c_str(), m_pTextFieldX->getFontSize());
@@ -85,6 +86,19 @@ public:
 
 		if (m_sText.size() + len > m_pTextFieldX->getMaxLenght())
 			return;
+		
+		std::string cszAddText;
+		cszAddText.append(text, len);
+		if (m_curSelCharRange.first != m_curSelCharRange.second)
+		{
+			if (!textValueChanged(m_curSelCharRange.first, m_curSelCharRange.second - m_curSelCharRange.first, cszAddText))
+				return;
+		}
+		else
+		{
+			if (!textValueChanged(m_iCurPos, 0, cszAddText))
+				return;
+		}
 
 		execCurSelCharRange();
 		analyzeString(text, len);
@@ -103,19 +117,20 @@ public:
 	}
 	void deleteBackward()
 	{
-		CC_RETURN_IF(m_sText.empty());
+		CC_RETURN_IF(m_sText.empty() || m_iCurPos==0);
 		if (m_pTextFieldX->isSecureTextEntry())
 		{
-			CC_RETURN_IF(execCurSelCharRange());
 			clearText();
 			updateImage();
 			return;
 		}
 
-		std::string cszDelStr;
 		if (m_curSelCharRange.first != m_curSelCharRange.second)
 		{
-			cszDelStr = m_sText.substr(m_curSelCharRange.first, m_curSelCharRange.second - m_curSelCharRange.first);
+			if (!textValueChanged(m_curSelCharRange.first, m_curSelCharRange.second - m_curSelCharRange.first, ""))
+				return;
+			
+			CC_RETURN_IF(execCurSelCharRange());
 		}
 		else
 		{
@@ -124,17 +139,17 @@ public:
 			{
 				++nDeleteLen;
 			}
-			cszDelStr = m_sText.substr(m_iCurPos - nDeleteLen, nDeleteLen);
+
+			if (!textValueChanged(m_iCurPos, nDeleteLen, ""))
+				return;
+
+			m_sText.erase(m_iCurPos - nDeleteLen, nDeleteLen);
+			m_iCurPos -= nDeleteLen;
+			m_curSelCharRange = std::make_pair(m_iCurPos, m_iCurPos);
+			m_vTextFiledChars.erase(m_vTextFiledChars.begin() + getStringCharCount(m_sText.substr(0, m_iCurPos)));
+
+			adjustCursorMove();
 		}
-		CC_RETURN_IF(execCurSelCharRange());
-
-		int nDeleteLen = (int)cszDelStr.size();
-		m_sText.erase(m_iCurPos - nDeleteLen, nDeleteLen);
-		m_iCurPos -= nDeleteLen;
-		m_curSelCharRange = std::make_pair(m_iCurPos, m_iCurPos);
-		m_vTextFiledChars.erase(m_vTextFiledChars.begin() + getStringCharCount(m_sText.substr(0, m_iCurPos)));
-
-		adjustCursorMove();
 	}
 	void copyToClipboard()
 	{
@@ -218,6 +233,18 @@ public:
 		m_pCursorMark->setVisible(false);
 		CAViewAnimation::removeAnimations(m_s__StrID);
 	}
+	bool textValueChanged(int location, int length, const std::string& changedText)
+	{
+		if (m_bCallbackTextChanged && m_pTextFieldX->getDelegate())
+		{
+			std::u16string c1, c2;
+			StringUtils::UTF8ToUTF16(m_sText.substr(0, location), c1);
+			StringUtils::UTF8ToUTF16(m_sText.substr(location, length), c2);
+
+			return m_pTextFieldX->getDelegate()->textFieldShouldChangeCharacters(m_pTextFieldX, c1.size(), c2.size(), changedText);
+		}
+		return true;
+	}
 	void calculateSelChars(const DPoint& point, int& l, int& r, int& p)
 	{
 	_CalcuAgain:
@@ -244,12 +271,11 @@ public:
 	{
 		std::string strLeft = m_sText.substr(0, m_iCurPos);
 		std::string strRight = m_sText.substr(m_iCurPos, m_sText.size());
-
 		std::string cszNewText(text, len);
 
 		std::u32string cszU32Text;
 		StringUtils::UTF8ToUTF32(cszNewText, cszU32Text);
-
+		
 		for (int i = 0; i < cszU32Text.size(); i++)
 		{
 			std::u32string c;
@@ -273,7 +299,6 @@ public:
 			m_iCurPos += t.charSize;
 		}
 
-		//textFieldAfterTextChanged
 		m_sText = strLeft + strRight;
 		m_curSelCharRange = std::make_pair(m_iCurPos, m_iCurPos);
 	}
@@ -358,6 +383,7 @@ public:
 	}
 	void setText(const std::string &var)
 	{
+		m_bCallbackTextChanged = false;
 		clearText();
 
 		if (var.empty())
@@ -368,6 +394,7 @@ public:
 		{
 			insertText(var.c_str(), (int)var.length());
 		}
+		m_bCallbackTextChanged = true;
 	}
 	const std::string& getText()
 	{
@@ -423,13 +450,13 @@ public:
 			const CATextField::TextFieldAlign& align = m_pTextFieldX->getTextFieldAlign();
 			switch (align)
 			{
-			case CATextField::TextEditAlignLeft:
+			case CATextField::Left:
 				iStr_d_length = 0;
 				break;
-			case CATextField::TextEditAlignCenter:
+			case CATextField::Center:
 				iStr_d_length = (m_iLabelWidth - (m_iString_l_length + m_iString_r_length)) / 2;
 				break;
-			case CATextField::TextEditAlignRight:
+			case CATextField::Right:
 				iStr_d_length = (m_iLabelWidth - (m_iString_l_length + m_iString_r_length));
 				break;
 			}
@@ -522,11 +549,11 @@ public:
 		GLfloat x1, x2, y1, y2;
 
 		const CATextField::TextFieldAlign& align = m_pTextFieldX->getTextFieldAlign();
-		if (align == CATextField::TextEditAlignRight)
+		if (align == CATextField::Right)
 		{
 			x1 = m_iLabelWidth - m_obRect.size.width;
 		}
-		else if (align == CATextField::TextEditAlignCenter)
+		else if (align == CATextField::Center)
 		{
 			x1 = (m_iLabelWidth - m_obRect.size.width) / 2;
 		}
@@ -591,6 +618,7 @@ private:
 	DSize m_cImageSize;
 	int m_iStartMovePos;
 	HCURSOR m_hEditCur;
+	bool m_bCallbackTextChanged;
 };
 
 
@@ -607,7 +635,9 @@ CATextField::CATextField()
 , m_iFontSize(40)
 , m_iMarginLeft(10)
 , m_iMarginRight(10)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
@@ -625,6 +655,8 @@ void CATextField::onEnterTransitionDidFinish()
 void CATextField::onExitTransitionDidStart()
 {
     CAView::onExitTransitionDidStart();
+
+	CAViewAnimation::removeAnimations(m_s__StrID + "showImage");
 }
 
 bool CATextField::resignFirstResponder()
@@ -636,7 +668,7 @@ bool CATextField::resignFirstResponder()
 
     bool result = CAView::resignFirstResponder();
 
-	if (m_eClearBtn == ClearButtonMode::ClearButtonWhileEditing)
+	if (m_eClearBtn == WhileEditing)
 	{
 		setMarginImageRight(DSize(10,0), "");
 	}
@@ -652,7 +684,7 @@ bool CATextField::becomeFirstResponder()
 
 	bool result = CAView::becomeFirstResponder();
 
-	if (m_eClearBtn == ClearButtonMode::ClearButtonWhileEditing)
+	if (m_eClearBtn == WhileEditing)
 	{
 		setMarginImageRight(DSize(getBounds().size.height, getBounds().size.height), "source_material/clearbtn.png");
 	}
@@ -681,7 +713,7 @@ void CATextField::delayShowImage()
 
 void CATextField::showImage()
 {
-    ((CATextFieldWin32*)m_pTextField)->updateImage();
+	((CATextFieldWin32*)m_pTextField)->updateImage();
 }
 
 CATextField* CATextField::createWithFrame(const DRect& frame)
@@ -727,8 +759,8 @@ bool CATextField::init()
 
 	CATextFieldWin32 *text = new CATextFieldWin32(this);
 	text->initWithFrame(DRect(0, 0, 1, 1));
-	text->autorelease();
 	this->addSubview(text);
+	text->release();
 
 	m_pTextField = (CATextFieldWin32*)text;
     return true;
@@ -825,7 +857,7 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
@@ -956,10 +988,12 @@ const CATextField::ReturnType& CATextField::getReturnType()
 
 void CATextField::setBackgroundImage(CAImage* image)
 {
-	if (!image)return;
-
-	m_pBackgroundView->setCapInsets(DRect(image->getPixelsWide() / 2, image->getPixelsHigh() / 2, 1, 1));
-	m_pBackgroundView->setImage(image);
+    if (image)
+    {
+        DRect capInsets = DRect(image->getPixelsWide()/2 ,image->getPixelsHigh()/2 , 1, 1);
+        m_pBackgroundView->setCapInsets(capInsets);
+    }
+    m_pBackgroundView->setImage(image);
 }
 
 void CATextField::setSecureTextEntry(bool var)

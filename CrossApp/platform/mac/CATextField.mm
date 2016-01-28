@@ -23,7 +23,52 @@
 #define NSTextAlignmentRight NSRightTextAlignment
 #endif
 
-@interface MACTextField: NSTextField<NSTextFieldDelegate>
+#define MAC_SCALE 1//[[NSScreen mainScreen] backingScaleFactor]
+
+@interface MACTextFieldCell: NSTextFieldCell
+{
+}
+
+@end
+
+@implementation MACTextFieldCell
+{
+    
+}
+
+- (NSRect)adjustedFrameToVerticallyCenterText:(NSRect)frame
+{
+    // super would normally draw text at the top of the cell
+    NSInteger offset = floor((NSHeight(frame) -
+                              ([[self font] ascender] - [[self font] descender])) / 2);
+    return NSInsetRect(frame, 0.0, offset);
+}
+
+- (void)editWithFrame:(NSRect)aRect inView:(NSView *)controlView
+               editor:(NSText *)editor delegate:(id)delegate event:(NSEvent *)event
+{
+    [super editWithFrame:[self adjustedFrameToVerticallyCenterText:aRect]
+                  inView:controlView editor:editor delegate:delegate event:event];
+}
+
+- (void)selectWithFrame:(NSRect)aRect inView:(NSView *)controlView
+                 editor:(NSText *)editor delegate:(id)delegate
+                  start:(NSInteger)start length:(NSInteger)length
+{
+    [super selectWithFrame:[self adjustedFrameToVerticallyCenterText:aRect]
+                    inView:controlView editor:editor delegate:delegate
+                     start:start length:length];
+}
+
+- (void)drawInteriorWithFrame:(NSRect)frame inView:(NSView *)view
+{
+    [super drawInteriorWithFrame:
+     [self adjustedFrameToVerticallyCenterText:frame] inView:view];
+}
+
+@end
+
+@interface MACTextField: NSTextField
 {
     BOOL _isShouldEdit;
     int _marginLeft;
@@ -56,16 +101,22 @@
     
 }
 
+-(void)setText:(NSString* )value
+{
+    self.stringValue = value;
+    self.beforeText = value;
+}
+
 -(void)setMarginLeft:(int)marginLeft
 {
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     _marginLeft = CrossApp::s_dip_to_px(marginLeft) / scale;
 }
 
 -(int)getMarginLeft
 {
     int olbMarginLeft = _marginLeft;
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     return CrossApp::s_px_to_dip(_marginLeft) * scale;
     
     NSRect rect = self.frame;
@@ -76,7 +127,7 @@
 -(void)setMarginRight:(int)marginRight
 {
     int olbMarginRight = _marginRight;
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     _marginRight = CrossApp::s_dip_to_px(marginRight) / scale;
     
     NSRect rect = self.frame;
@@ -86,7 +137,7 @@
 
 -(int)getMarginRight
 {
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     return CrossApp::s_px_to_dip(_marginRight) * scale;
 }
 
@@ -107,7 +158,7 @@
 -(CrossApp::DRect)getDRect
 {
     CrossApp::DRect rect;
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     rect.origin.x = CrossApp::s_px_to_dip(_marginLeft) * scale;
     rect.origin.y = CrossApp::s_px_to_dip(0) * scale;
     rect.size.width = CrossApp::s_px_to_dip(self.frame.size.width) * scale;
@@ -119,13 +170,41 @@
 {
     if ([super initWithFrame:frameRect])
     {
-        [self setDelegate:self];
         [self setBackgroundColor:[NSColor clearColor]];
         [self setBezeled:NO];
+        
+        {
+            NSTextFieldCell* oldCell = [self cell];
+            MACTextFieldCell* cell = [[MACTextFieldCell alloc]initTextCell:@""];
+            
+            [cell setState:[oldCell state]];
+            [cell setTarget:[oldCell target]];
+            [cell setAction:[oldCell action]];
+            [cell setEnabled:[oldCell isEnabled]];
+            [cell setContinuous:[oldCell isContinuous]];
+            [cell setEditable:[oldCell isEditable]];
+            [cell setSelectable:[oldCell isSelectable]];
+            [cell setBordered:[oldCell isBordered]];
+            [cell setBezeled:[oldCell isBezeled]];
+            [cell setScrollable:[oldCell isScrollable]];
+            [cell setHighlighted:[oldCell isHighlighted]];
+            [cell setWraps:[oldCell wraps]];
+            [cell setFont:[oldCell font]];
+            [cell setFormatter:[oldCell formatter]];
+            [cell setObjectValue:[cell objectValue]];
+
+            [self setCell:cell];
+            [cell release];
+        }
+        
+        
         [[self cell] setAlignment:NSTextAlignmentLeft];
         [[self cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         _marginLeft = 0;
         _marginRight = 0;
+        
+        [self setBeforeText:@"" ];
+        
         return self;
     }
     return nil;
@@ -142,14 +221,119 @@
     [self setWantsLayer:YES];
 }
 
-- (void)textDidChange:(NSNotification *)notification
+- (unsigned int)getLocationWithBefore:(NSString*)before Current:(NSString*)current
 {
-    [super textDidChange:notification];
+    unsigned int location = 0;
+    
+    for(unsigned int i=0; i<before.length; i++)
+    {
+        if (i == current.length)
+        {
+            location = i;
+            break;
+        }
+        
+        unichar before_char = [before characterAtIndex: i];
+        unichar current_char = [current characterAtIndex: i];
+        
+        if(before_char != current_char)
+        {
+            location = i;
+            break;
+        }
+        
+        location = before.length;
+    }
+    
+    return location;
 }
 
-- (void) keyDown:(NSEvent *)theEvent
+- (unsigned int)getLenghtWithBefore:(NSString*)before Current:(NSString*)current Location:(unsigned int)location
 {
-    [super keyDown:theEvent];
+    unsigned int lenght = 0;
+    
+    for(unsigned int i=location; i<before.length; i++)
+    {
+        if (i == current.length)
+        {
+            lenght = i + 1 - location;
+            break;
+        }
+        
+        unichar before_char = [before characterAtIndex: i];
+
+        unichar current_char = [current characterAtIndex: i];
+        
+        if(before_char != current_char)
+        {
+            if (before.length > current.length)
+            {
+                lenght = before.length - current.length;
+            }
+            else if (before.length < current.length)
+            {
+                lenght = i - location;
+            }
+            else
+            {
+                lenght = 0;
+            }
+            
+            break;
+        }
+
+        lenght = before.length - location;
+    }
+    
+    return lenght;
+}
+
+- (void)textDidChange:(NSNotification *)notification
+{
+    NSString* before = [NSString stringWithString:[self beforeText]];
+    NSString* current = [NSString stringWithString:[self stringValue]];;
+    
+    unsigned int location = [self getLocationWithBefore:before Current:current];
+    unsigned int lenght = [self getLenghtWithBefore:before Current:current Location:location];
+    unsigned int addLenght = MAX((long)(current.length - (before.length - (long)lenght)), 0);
+
+    std::string changedText = "";
+    
+    if (addLenght > 0)
+    {
+        changedText = [[current substringWithRange:NSMakeRange(location, addLenght)] UTF8String];
+    }
+    else
+    {
+        changedText = "";
+    }
+    
+    
+    int maxLenght = _textField->getMaxLenght();
+    if (maxLenght > 0 && maxLenght < current.length)
+    {
+        if (before.length < maxLenght)
+        {
+            [self setStringValue:[current substringToIndex:maxLenght]];
+        }
+        else
+        {
+            [self setStringValue:[self beforeText]];
+        }
+    }
+    else
+    {
+        if (_textField->getDelegate() && !_textField->getDelegate()->textFieldShouldChangeCharacters(_textField, location, lenght, changedText))
+        {
+            [self setStringValue:before];
+        }
+        else
+        {
+            
+            [self setBeforeText:current];
+            [self setStringValue:current];
+        }
+    }
 }
 
 - (void) keyUp:(NSEvent *)theEvent
@@ -169,6 +353,31 @@
     }
 }
 
+- (BOOL)performKeyEquivalent:(NSEvent *)event
+{
+    if (([event modifierFlags] & NSDeviceIndependentModifierFlagsMask) == NSCommandKeyMask)
+    {
+        // The command key is the ONLY modifier key being pressed.
+        if ([[event charactersIgnoringModifiers] isEqualToString:@"x"])
+        {
+            return [NSApp sendAction:@selector(cut:) to:[[self window] firstResponder] from:self];
+        }
+        else if ([[event charactersIgnoringModifiers] isEqualToString:@"c"])
+        {
+            return [NSApp sendAction:@selector(copy:) to:[[self window] firstResponder] from:self];
+        }
+        else if ([[event charactersIgnoringModifiers] isEqualToString:@"v"])
+        {
+            return [NSApp sendAction:@selector(paste:) to:[[self window] firstResponder] from:self];
+        }
+        else if ([[event charactersIgnoringModifiers] isEqualToString:@"a"])
+        {
+            return [NSApp sendAction:@selector(selectAll:) to:[[self window] firstResponder] from:self];
+        }
+    }
+    return [super performKeyEquivalent:event];
+}
+
 @end
 
 
@@ -185,7 +394,9 @@ CATextField::CATextField()
 , m_iMarginRight(10)
 , m_iFontSize(40)
 , m_iMaxLenght(0)
-, m_eClearBtn(ClearButtonMode::ClearButtonNone)
+, m_eClearBtn(None)
+, m_eAlign(Left)
+, m_eReturnType(Done)
 , m_obLastPoint(DPoint(-0xffff, -0xffff))
 {
     this->setHaveNextResponder(false);
@@ -195,9 +406,10 @@ CATextField::CATextField()
     EAGLView * eaglview = [EAGLView sharedEGLView];
     [eaglview addSubview:textField_MAC];
     textField_MAC.textField = this;
+    [textField_MAC release];
     
-    textField_MAC.placeholderString = @"placeholder";
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    textField_MAC.placeholderString = @"";
+    CGFloat scale = MAC_SCALE;
     textField_MAC.font = [NSFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
 }
 
@@ -293,7 +505,7 @@ void CATextField::showImage()
 {
     NSImage* image_MAC = [[[NSImage alloc]initWithData:[textField_MAC dataWithPDFInsideRect:[textField_MAC bounds]]]autorelease];
     
-    NSData* data_MAC = [image_MAC TIFFRepresentation];
+    NSData* data_MAC = [image_MAC TIFFRepresentationUsingCompression:NSTIFFCompressionNone factor:MAC_SCALE];
     
     unsigned char* data = (unsigned char*)malloc([data_MAC length]);
     [data_MAC getBytes:data];
@@ -354,13 +566,12 @@ void CATextField::update(float dt)
 {
     do
     {
-        CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
+        //CC_BREAK_IF(!CAApplication::getApplication()->isDrawing());
         DPoint point = this->convertToWorldSpace(DPointZero);
         point.y = CAApplication::getApplication()->getWinSize().height - point.y;
         point.y = point.y - m_obContentSize.height;
-//        CC_BREAK_IF(m_obLastPoint.equals(point));
 
-        CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+        CGFloat scale = MAC_SCALE;
         NSPoint origin;
         origin.x = s_dip_to_px(point.x) / scale;
         origin.y = s_dip_to_px(point.y) / scale;
@@ -373,9 +584,9 @@ void CATextField::setContentSize(const DSize& contentSize)
 {
     CAView::setContentSize(contentSize);
     
-    DSize worldContentSize = DSizeApplyAffineTransform(m_obContentSize, worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(m_obContentSize);
     
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     NSSize size;
     size.width = s_dip_to_px(worldContentSize.width) / scale;
     size.height =  s_dip_to_px(worldContentSize.height) / scale;
@@ -468,7 +679,7 @@ void CATextField::setPlaceHolderColor(const CAColor4B &var)
     
     NSColor* color = [NSColor colorWithRed:var.r/255.f green:var.g/255.f blue:var.b/255.f alpha:var.a];
 //    [textField_MAC setValue:color forKeyPath:@"_placeholderLabel.textColor"];
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     textField_MAC.font = [NSFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
     this->delayShowImage();
 }
@@ -482,7 +693,7 @@ void CATextField::setFontSize(int var)
 {
     m_iFontSize = var;
     
-    CGFloat scale = [[NSScreen mainScreen] backingScaleFactor];
+    CGFloat scale = MAC_SCALE;
     textField_MAC.font = [NSFont systemFontOfSize:s_dip_to_px(m_iFontSize) / scale];
 //    [textField_MAC setValue:textField_MAC.font forKeyPath:@"_placeholderLabel.font"];
     
@@ -497,15 +708,15 @@ int CATextField::getFontSize()
 void CATextField::setText(const std::string &var)
 {
     m_sText = var;
-    textField_MAC.stringValue = [NSString stringWithUTF8String:m_sText.c_str()];
-    textField_MAC.beforeText = [textField_MAC stringValue];
+    
+    [textField_MAC setText:[NSString stringWithUTF8String:m_sText.c_str()]];
     
     this->delayShowImage();
 }
 
 const std::string& CATextField::getText()
 {
-    m_sText = [textField_MAC.stringValue UTF8String];
+    m_sText = [textField_MAC.beforeText UTF8String];
     return m_sText;
 }
 
@@ -531,7 +742,7 @@ void CATextField::setMarginLeft(int var)
 {
     m_iMarginLeft = var;
     
-    DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+    DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
     
     [textField_MAC setMarginLeft:worldContentSize.width];
     
@@ -547,11 +758,11 @@ int CATextField::getMarginLeft()
 
 void CATextField::setMarginRight(int var)
 {
-    if (m_eClearBtn == ClearButtonNone)
+    if (m_eClearBtn == None)
     {
         m_iMarginRight = var;
         
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(var, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(var, 0));
         
         [textField_MAC setMarginRight:worldContentSize.width];
         
@@ -604,7 +815,7 @@ void CATextField::setMarginImageRight(const DSize& imgSize,const std::string& fi
 
 void CATextField::setClearButtonMode(const ClearButtonMode &var)
 {
-    if (var == ClearButtonWhileEditing)
+    if (var == WhileEditing)
     {
         setMarginImageRight(DSize(m_obContentSize.height, m_obContentSize.height), "");
         
@@ -613,7 +824,7 @@ void CATextField::setClearButtonMode(const ClearButtonMode &var)
         rightMarginView->setImageColorForState(CAControlStateHighlighted, CAColor_blue);
         rightMarginView->addTarget(this, CAControl_selector(CATextField::clearBtnCallBack), CAControlEventTouchUpInSide);
 
-        DSize worldContentSize = DSizeApplyAffineTransform(DSize(m_iMarginRight, 0), worldToNodeTransform());
+        DSize worldContentSize = this->convertToWorldSize(DSize(m_iMarginRight, 0));
         
         [textField_MAC setMarginRight:worldContentSize.width];
         
@@ -643,13 +854,13 @@ void CATextField::setTextFieldAlign(const TextFieldAlign &var)
     
     switch (var)
     {
-        case CATextField::TextEditAlignLeft:
+        case Left:
             [[textField_MAC cell] setAlignment:NSTextAlignmentLeft];
             break;
-        case CATextField::TextEditAlignCenter:
+        case Center:
             [[textField_MAC cell] setAlignment:NSTextAlignmentCenter];
             break;
-        case CATextField::TextEditAlignRight:
+        case Right:
             [[textField_MAC cell] setAlignment:NSTextAlignmentRight];
             break;
         default:
